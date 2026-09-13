@@ -1332,7 +1332,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       const nfl = games.filter(g => g.league === 'NFL').length;
       const fbs = games.filter(g => g.league === 'FBS').length;
       const live = games.filter(g => g.status === 'live').length;
-      const locked = games.filter(g => g.finalSpread !== null).length;
+      const locked = games.filter(g => isValidSpread(g.finalSpread)).length;
       
       document.getElementById('totalGames').textContent = games.length;
       document.getElementById('nflGames').textContent = nfl;
@@ -1458,6 +1458,18 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       });
     }
     
+    // A spread field counts as "set" only if it's a real number — null and
+    // undefined both mean "never set", and old bad data can also leave it
+    // as literal NaN. Plain "!== null" checks scattered through this file
+    // let both undefined and NaN slip past as if they were valid, which is
+    // exactly how an already-final game with a corrupted finalSpread kept
+    // getting treated as scored and handing every pick on it an automatic
+    // loss (NaN comparisons are always false, so scorePickResult falls
+    // through to its LOSS branch no matter what was actually picked).
+    function isValidSpread(v) {
+      return v !== null && v !== undefined && !Number.isNaN(v);
+    }
+
     function formatSpread(spread) {
       return spread > 0 ? `+${spread}` : spread;
     }
@@ -2004,7 +2016,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function renderScoresTab() {
-      const locked = games.filter(g => g.finalSpread !== null);
+      const locked = games.filter(g => isValidSpread(g.finalSpread));
       const scored = locked.filter(g => g.homeScore !== null);
       document.getElementById('finalCount').textContent = locked.length;
       document.getElementById('scoredCount').textContent = scored.length;
@@ -2014,7 +2026,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
     function renderScoreEntryTable() {
       const tbody = document.getElementById('scoresTableBody');
-      const locked = games.filter(g => g.finalSpread !== null)
+      const locked = games.filter(g => isValidSpread(g.finalSpread))
                           .sort((a,b) => new Date(a.gameTime) - new Date(b.gameTime));
 
       if (locked.length === 0) {
@@ -2191,7 +2203,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
     async function renderPlayerResults() {
       const tbody = document.getElementById('playerResultsBody');
-      const scoredGames = games.filter(g => g.homeScore !== null && g.finalSpread !== null);
+      const scoredGames = games.filter(g => g.homeScore !== null && isValidSpread(g.finalSpread));
 
       if (scoredGames.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Enter final scores above to see player results</td></tr>';
@@ -2427,7 +2439,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function scoreAllGames() {
-      const unscored = games.filter(g => g.finalSpread !== null && g.homeScore === null);
+      const unscored = games.filter(g => isValidSpread(g.finalSpread) && g.homeScore === null);
       if (unscored.length === 0) {
         showAlert('All locked games already have scores entered', 'success');
         return;
@@ -2436,7 +2448,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function exportScores() {
-      const scoredGames = games.filter(g => g.homeScore !== null && g.finalSpread !== null);
+      const scoredGames = games.filter(g => g.homeScore !== null && isValidSpread(g.finalSpread));
       if (scoredGames.length === 0) {
         showAlert('No scored games to export yet', 'error');
         return;
