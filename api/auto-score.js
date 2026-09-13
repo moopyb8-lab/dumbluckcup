@@ -36,6 +36,16 @@
 const FIREBASE_DB_URL = 'https://dumb-luck-cup-default-rtdb.firebaseio.com';
 const LEAGUE_PATHS = { nfl: 'football/nfl', cfb: 'football/college-football' };
 
+// A spread only counts as "set" if it's a real number. null, undefined,
+// and literal NaN (old bad data, or a value Firebase dropped on a prior
+// write) all mean "not usable" — a plain "=== null" check misses the
+// other two, which is how a game with an undefined/NaN finalSpread could
+// get treated as already-locked and scored anyway with that bad spread
+// still attached, handing every pick on it an automatic loss.
+function isValidSpread(v) {
+  return v !== null && v !== undefined && !Number.isNaN(v);
+}
+
 module.exports = async (req, res) => {
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization'];
@@ -133,11 +143,11 @@ module.exports = async (req, res) => {
       if (match.homeScore === null || match.awayScore === null ||
           Number.isNaN(match.homeScore) || Number.isNaN(match.awayScore)) continue;
 
-      if (game.finalSpread === null) {
+      if (!isValidSpread(game.finalSpread)) {
         // Can't score a cover without a locked spread, and can't lock a
         // spread that was never set (a "No Available Spread" PK game) —
         // leave those for the admin to review by hand.
-        if (game.currentSpread === null || Number.isNaN(game.currentSpread)) {
+        if (!isValidSpread(game.currentSpread)) {
           skippedNoSpread++;
           continue;
         }

@@ -917,6 +917,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       <button class="btn btn-primary" onclick="syncFinalScoresFromESPN()">✅ Score Games That Are Over</button>
       <button class="btn btn-secondary" onclick="fixMissingSpreadsFromESPN()">🩹 Fix Missing/NaN Spreads (ESPN)</button>
       <button class="btn btn-secondary" onclick="revertAllScores()">↩️ Revert All Scored Games</button>
+      <button class="btn btn-secondary" onclick="clearAllLocksAndScores()">🧹 Clear All Locks &amp; Scores</button>
       <button class="btn btn-secondary" onclick="scoreAllGames()">⚡ Calculate All Scores</button>
       <button class="btn btn-secondary" onclick="exportScores()">📥 Export Scores (CSV)</button>
       <div style="margin-left:auto;font-size:13px;color:#666;">
@@ -2192,6 +2193,43 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       renderPlayerResults();
       updateStats();
       showAlert(`Reverted ${finalGames.length} game(s) — none are marked final anymore`, 'success');
+    }
+
+    // Full reset, one level past revertAllScores(): that only clears
+    // score/status, leaving finalSpread untouched — which does nothing
+    // for a game whose finalSpread is itself the bad value (NaN or
+    // undefined), since a game with homeScore already cleared to null
+    // no longer counts as "scored" regardless of what finalSpread holds.
+    // This exists for the case where the corruption is visibly wider
+    // than that: every pick showing as a loss with 0 wins/pushes across
+    // the board even after a revert means finalSpread is bad on most or
+    // all currently loaded games, not just the ones that were reverted.
+    // Clears homeScore/awayScore/status AND finalSpread on every game,
+    // unlocking everything back to "scheduled, not yet locked" — but
+    // leaves currentSpread alone, so the open line isn't lost and the
+    // Spreads tab can re-lock (or "Fix Missing/NaN Spreads" can re-fetch)
+    // from a clean state.
+    function clearAllLocksAndScores() {
+      if (games.length === 0) {
+        showAlert('No games loaded', 'error');
+        return;
+      }
+      if (!confirm(`This clears the score, lock, AND final spread on ALL ${games.length} loaded game(s) — including any that are genuinely over. currentSpread (the open line) is left alone. Use this if results still look wrong after "Revert All Scored Games". Continue?`)) return;
+
+      for (const game of games) {
+        game.homeScore = null;
+        game.awayScore = null;
+        game.status = 'scheduled';
+        game.finalSpread = null;
+      }
+
+      saveGames();
+      renderGamesTable();
+      renderSpreadsTable();
+      renderScoreEntryTable();
+      renderPlayerResults();
+      updateStats();
+      showAlert(`Cleared locks and scores on all ${games.length} game(s) — everything is back to scheduled/unlocked`, 'success');
     }
 
     function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {
