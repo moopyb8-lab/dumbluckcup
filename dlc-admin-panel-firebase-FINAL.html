@@ -2266,21 +2266,22 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
     // Repairs games whose currentSpread is null or literally NaN (old bad
     // data from before saveGame()/importParsedGames() guarded against a
-    // failed parse) by pulling the real line from ESPN's odds. Only
-    // touches games that haven't kicked off yet — once a game starts,
-    // ESPN stops reporting a pre-game line for it, so there is nothing
-    // left to backfill from and the game must be handled by hand.
+    // failed parse) by pulling the real line from ESPN's odds. Covers
+    // games at any status, including ones already final — ESPN's
+    // scoreboard for a given date still carries that game's line even
+    // after it's over, which is exactly the historical line a locked
+    // spread is supposed to capture. For a game that's already final
+    // (or has a score in) and was never locked because the old NaN
+    // spread got skipped, this also fills in finalSpread directly so it
+    // scores immediately instead of needing a separate manual lock.
     async function fixMissingSpreadsFromESPN() {
       const statusEl = document.getElementById('spreadFixStatus');
-      const now = new Date();
       const broken = games.filter(g =>
-        g.status === 'scheduled' &&
-        new Date(g.gameTime) > now &&
-        (g.currentSpread === null || Number.isNaN(g.currentSpread))
+        g.currentSpread === null || Number.isNaN(g.currentSpread)
       );
 
       if (broken.length === 0) {
-        statusEl.textContent = "ℹ️ No games with a missing/invalid spread that haven't started yet.";
+        statusEl.textContent = 'ℹ️ No games with a missing/invalid spread.';
         return;
       }
       if (typeof ESPN_API === 'undefined') {
@@ -2306,7 +2307,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         return;
       }
 
-      let fixed = 0, stillMissing = 0;
+      let fixed = 0, stillMissing = 0, locked = 0;
       for (const game of broken) {
         const match = espnGames.find(e =>
           (game.espnEventId && e.espnEventId === game.espnEventId) ||
@@ -2317,6 +2318,11 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         game.currentSpread = match.currentSpread;
         game.spreadLastUpdated = new Date().toISOString();
         fixed++;
+
+        if (game.finalSpread === null && (game.status === 'final' || game.homeScore !== null)) {
+          game.finalSpread = match.currentSpread;
+          locked++;
+        }
       }
 
       if (fixed > 0) {
@@ -2335,7 +2341,8 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       renderScoresTab();
 
       statusEl.textContent = `✅ Fixed ${fixed} spread${fixed !== 1 ? 's' : ''} from ESPN` +
-        (stillMissing > 0 ? ` — ${stillMissing} still have no line posted yet, check back closer to kickoff.` : '.');
+        (locked > 0 ? ` (auto-locked ${locked} finished game${locked !== 1 ? 's' : ''} so ${locked !== 1 ? 'they' : 'it'} score${locked !== 1 ? '' : 's'} now)` : '') +
+        (stillMissing > 0 ? ` — ${stillMissing} still have no line from ESPN, will need a spread entered by hand.` : '.');
     }
 
     function scoreAllGames() {
