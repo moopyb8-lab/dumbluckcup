@@ -2264,75 +2264,94 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         (data.skippedNoSpread > 0 ? ` — ${data.skippedNoSpread} skipped, no spread was ever set` : '') + '.';
     }
 
-    // Repairs games whose currentSpread is null or literally NaN (old bad
-    // data from before saveGame()/importParsedGames() guarded against a
-    // failed parse) by pulling the real line from ESPN's odds. Covers
-    // games at any status, including ones already final — ESPN's
+    // Repairs bad spreads — null or literally NaN, which "!== null"
+    // checks elsewhere in this file don't catch, letting a NaN slip
+    // through as if it were a real value. Two distinct cases, since a
+    // game can have a fine currentSpread but a stuck-bad finalSpread
+    // (a lock captured a bad number before currentSpread was later
+    // corrected by hand — the lock was never redone) or a genuinely bad
+    // currentSpread (needs a real number pulled from ESPN's odds).
+    // Covers games at any status, including already-final ones — ESPN's
     // scoreboard for a given date still carries that game's line even
     // after it's over, which is exactly the historical line a locked
-    // spread is supposed to capture. For a game that's already final
-    // (or has a score in) and was never locked because the old NaN
-    // spread got skipped, this also fills in finalSpread directly so it
-    // scores immediately instead of needing a separate manual lock.
+    // spread is supposed to capture. Anywhere this fills in finalSpread
+    // for an already-final game, that game starts scoring immediately —
+    // no separate manual lock needed.
     async function fixMissingSpreadsFromESPN() {
       const statusEl = document.getElementById('spreadFixStatus');
-      const broken = games.filter(g =>
-        g.currentSpread === null || Number.isNaN(g.currentSpread)
-      );
+      const isBad = (v) => v === null || Number.isNaN(v);
+      const needsLock = (g) => g.status === 'final' || g.homeScore !== null;
 
-      if (broken.length === 0) {
-        statusEl.textContent = 'ℹ️ No games with a missing/invalid spread.';
-        return;
-      }
-      if (typeof ESPN_API === 'undefined') {
-        statusEl.textContent = '⚠️ espn-api.js did not load.';
-        return;
-      }
-
-      statusEl.textContent = `⏳ Fetching ESPN odds for ${broken.length} game${broken.length !== 1 ? 's' : ''}...`;
-
-      const times = broken.map(g => new Date(g.gameTime).getTime());
-      const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
-      const from = new Date(Math.min(...times)); from.setDate(from.getDate() - 1);
-      const to = new Date(Math.max(...times)); to.setDate(to.getDate() + 1);
-      const dates = `${fmt(from)}-${fmt(to)}`;
-      const leagues = [...new Set(broken.map(g => g.league === 'NFL' ? 'nfl' : 'cfb'))];
-
-      let espnGames;
-      try {
-        espnGames = await ESPN_API.fetchWeekGames({ dates, leagues });
-      } catch (e) {
-        console.error('ESPN spread fetch failed:', e);
-        statusEl.textContent = `❌ ESPN fetch failed: ${e.message}`;
-        return;
-      }
-
-      let fixed = 0, stillMissing = 0, locked = 0;
-      for (const game of broken) {
-        const match = espnGames.find(e =>
-          (game.espnEventId && e.espnEventId === game.espnEventId) ||
-          (!game.espnEventId && e.league === game.league &&
-           e.homeAbbr === game.homeAbbr && e.awayAbbr === game.awayAbbr)
-        );
-        if (!match || match.currentSpread === null) { stillMissing++; continue; }
-        game.currentSpread = match.currentSpread;
-        game.spreadLastUpdated = new Date().toISOString();
-        fixed++;
-
-        if (game.finalSpread === null && (game.status === 'final' || game.homeScore !== null)) {
-          game.finalSpread = match.currentSpread;
-          locked++;
+      // Case 1: finalSpread is bad but currentSpread already holds a
+      // good number — just re-lock from it, no ESPN call needed.
+      let relocked = 0;
+      for (const game of games) {
+        if (isBad(game.finalSpread) && !isBad(game.currentSpread) && needsLock(game)) {
+          game.finalSpread = game.currentSpread;
+          relocked++;
         }
       }
 
-      if (fixed > 0) {
-        try {
-          await DLC_DB.saveGames(games);
-        } catch (e) {
-          console.error('Could not save repaired spreads:', e);
-          statusEl.textContent = `❌ Fetched ${fixed} spread${fixed !== 1 ? 's' : ''} but saving to Firebase failed: ${e.message}`;
+      // Case 2: currentSpread itself is bad, so there's nothing valid to
+      // copy from — pull the real line from ESPN.
+      const broken = games.filter(g => isBad(g.currentSpread));
+
+      let fixed = 0, stillMissing = 0, lockedFromESPN = 0;
+      if (broken.length > 0) {
+        if (typeof ESPN_API === 'undefined') {
+          statusEl.textContent = '⚠️ espn-api.js did not load.';
           return;
         }
+
+        statusEl.textContent = `⏳ Fetching ESPN odds for ${broken.length} game${broken.length !== 1 ? 's' : ''}...`;
+
+        const times = broken.map(g => new Date(g.gameTime).getTime());
+        const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
+        const from = new Date(Math.min(...times)); from.setDate(from.getDate() - 1);
+        const to = new Date(Math.max(...times)); to.setDate(to.getDate() + 1);
+        const dates = `${fmt(from)}-${fmt(to)}`;
+        const leagues = [...new Set(broken.map(g => g.league === 'NFL' ? 'nfl' : 'cfb'))];
+
+        let espnGames;
+        try {
+          espnGames = await ESPN_API.fetchWeekGames({ dates, leagues });
+        } catch (e) {
+          console.error('ESPN spread fetch failed:', e);
+          statusEl.textContent = `❌ ESPN fetch failed: ${e.message}`;
+          return;
+        }
+
+        for (const game of broken) {
+          const match = espnGames.find(e =>
+            (game.espnEventId && e.espnEventId === game.espnEventId) ||
+            (!game.espnEventId && e.league === game.league &&
+             e.homeAbbr === game.homeAbbr && e.awayAbbr === game.awayAbbr)
+          );
+          if (!match || match.currentSpread === null) { stillMissing++; continue; }
+          game.currentSpread = match.currentSpread;
+          game.spreadLastUpdated = new Date().toISOString();
+          fixed++;
+
+          if (isBad(game.finalSpread) && needsLock(game)) {
+            game.finalSpread = match.currentSpread;
+            lockedFromESPN++;
+          }
+        }
+      }
+
+      if (fixed === 0 && relocked === 0) {
+        statusEl.textContent = broken.length === 0
+          ? 'ℹ️ No games with a missing/invalid spread.'
+          : `ℹ️ ESPN had no line for ${stillMissing} game${stillMissing !== 1 ? 's' : ''} with a bad spread — needs one entered by hand.`;
+        return;
+      }
+
+      try {
+        await DLC_DB.saveGames(games);
+      } catch (e) {
+        console.error('Could not save repaired spreads:', e);
+        statusEl.textContent = `❌ Repaired ${fixed + relocked} spread(s) locally but saving to Firebase failed: ${e.message}`;
+        return;
       }
 
       updateStats();
@@ -2340,9 +2359,14 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       renderSpreadsTable();
       renderScoresTab();
 
-      statusEl.textContent = `✅ Fixed ${fixed} spread${fixed !== 1 ? 's' : ''} from ESPN` +
-        (locked > 0 ? ` (auto-locked ${locked} finished game${locked !== 1 ? 's' : ''} so ${locked !== 1 ? 'they' : 'it'} score${locked !== 1 ? '' : 's'} now)` : '') +
-        (stillMissing > 0 ? ` — ${stillMissing} still have no line from ESPN, will need a spread entered by hand.` : '.');
+      const totalLocked = relocked + lockedFromESPN;
+      const parts = [];
+      if (fixed > 0) parts.push(`fetched ${fixed} spread${fixed !== 1 ? 's' : ''} from ESPN`);
+      if (relocked > 0) parts.push(`re-locked ${relocked} game${relocked !== 1 ? 's' : ''} from an already-correct spread`);
+      if (totalLocked > 0) parts.push(`${totalLocked} finished game${totalLocked !== 1 ? 's' : ''} now score${totalLocked === 1 ? 's' : ''}`);
+      if (stillMissing > 0) parts.push(`${stillMissing} still have no line from ESPN — needs a spread entered by hand`);
+
+      statusEl.textContent = `✅ ${parts.join('; ')}.`;
     }
 
     function scoreAllGames() {
