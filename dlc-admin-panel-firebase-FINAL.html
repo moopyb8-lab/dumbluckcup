@@ -914,7 +914,8 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     </div>
 
     <div class="controls" style="margin-bottom:16px;">
-      <button class="btn btn-primary" onclick="syncFinalScoresFromESPN()">✅ Score Games That Are Over</button>
+      <button class="btn btn-primary" onclick="loadFinishedGamesWithFinalSpread()">📥 Load Finished Games With Final Spread</button>
+      <button class="btn btn-secondary" onclick="syncFinalScoresFromESPN()">✅ Score Games That Are Over</button>
       <button class="btn btn-secondary" onclick="fixMissingSpreadsFromESPN()">🩹 Fix Missing/NaN Spreads (ESPN)</button>
       <button class="btn btn-secondary" onclick="revertAllScores()">↩️ Revert All Scored Games</button>
       <button class="btn btn-secondary" onclick="clearAllLocksAndScores()">🧹 Clear All Locks &amp; Scores</button>
@@ -2419,6 +2420,23 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     // homeScore/finalSpread once it's saved — there's no separate scoring
     // step once this returns. Refreshes this page's own copy of games
     // from Firebase afterward so the tables reflect what was just written.
+    // One-click recovery/catch-up: repairs any missing or invalid spread
+    // from ESPN first (fixMissingSpreadsFromESPN — covers games at any
+    // status, including already-final ones), then scores every game ESPN
+    // reports as final using whatever spread that just left in place
+    // (syncFinalScoresFromESPN, which re-locks finalSpread from
+    // currentSpread on its own if needed). Running both in this order
+    // means a game can't get scored with a spread that's still bad, and
+    // a single click both restores real final scores and makes sure the
+    // spread backing them is real too — the two were previously separate
+    // buttons, which is how a game could end up scored without ever
+    // getting a valid spread repaired first.
+    async function loadFinishedGamesWithFinalSpread() {
+      await fixMissingSpreadsFromESPN();
+      await syncFinalScoresFromESPN();
+      showAlert('Done — spreads repaired and every ESPN-final game scored', 'success');
+    }
+
     async function syncFinalScoresFromESPN() {
       const statusEl = document.getElementById('scoreSyncStatus');
       statusEl.textContent = '⏳ Checking for finished games...';
