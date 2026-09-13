@@ -1496,6 +1496,16 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       return v !== null && v !== undefined && !Number.isNaN(v);
     }
 
+    // Same reasoning as isValidSpread(), applied to homeScore/awayScore.
+    // "!== null" checks on these let a game that never started (score
+    // undefined, not null) get treated as if it had a real score — that's
+    // how a not-yet-played game could get swept up in the ESPN spread
+    // repair's re-lock pass and end up looking scored before it even
+    // kicked off.
+    function isValidScore(v) {
+      return v !== null && v !== undefined && !Number.isNaN(v);
+    }
+
     function formatSpread(spread) {
       return spread > 0 ? `+${spread}` : spread;
     }
@@ -2043,7 +2053,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
     function renderScoresTab() {
       const locked = games.filter(g => isValidSpread(g.finalSpread));
-      const scored = locked.filter(g => g.homeScore !== null);
+      const scored = locked.filter(g => isValidScore(g.homeScore));
       document.getElementById('finalCount').textContent = locked.length;
       document.getElementById('scoredCount').textContent = scored.length;
       renderScoreEntryTable();
@@ -2068,7 +2078,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
           ? `${game.homeAbbr} -${Math.abs(spread)}`
           : `${game.awayAbbr} -${Math.abs(spread)}`;
 
-        const hasScore = game.homeScore !== null && game.awayScore !== null;
+        const hasScore = isValidScore(game.homeScore) && isValidScore(game.awayScore);
         const resultHTML = hasScore ? getGameResultBadge(game) : '<span style="color:#999;font-size:12px;">—</span>';
 
         return `
@@ -2081,14 +2091,14 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
             <td>
               <input type="number" min="0" max="99" style="width:70px;padding:5px 8px;border:1px solid #d0d0d0;border-radius:5px;font-size:13px;text-align:center;"
                 id="away-score-${game.id}"
-                value="${game.awayScore !== null ? game.awayScore : ''}"
+                value="${isValidScore(game.awayScore) ? game.awayScore : ''}"
                 placeholder="—"
                 onchange="saveGameScore('${game.id}')">
             </td>
             <td>
               <input type="number" min="0" max="99" style="width:70px;padding:5px 8px;border:1px solid #d0d0d0;border-radius:5px;font-size:13px;text-align:center;"
                 id="home-score-${game.id}"
-                value="${game.homeScore !== null ? game.homeScore : ''}"
+                value="${isValidScore(game.homeScore) ? game.homeScore : ''}"
                 placeholder="—"
                 onchange="saveGameScore('${game.id}')">
             </td>
@@ -2102,7 +2112,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function getGameResultBadge(game) {
-      if (game.homeScore === null || game.awayScore === null) return '—';
+      if (!isValidScore(game.homeScore) || !isValidScore(game.awayScore)) return '—';
       const homeMargin = game.homeScore - game.awayScore;
       const coverMargin = homeMargin + game.finalSpread;
       let badge, label;
@@ -2266,7 +2276,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
     async function renderPlayerResults() {
       const tbody = document.getElementById('playerResultsBody');
-      const scoredGames = games.filter(g => g.homeScore !== null && isValidSpread(g.finalSpread));
+      const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
 
       if (scoredGames.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Enter final scores above to see player results</td></tr>';
@@ -2381,7 +2391,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
           ? 'No line yet'
           : (spread <= 0 ? `${game.homeAbbr} ${spread}` : `${game.awayAbbr} -${spread}`);
 
-        const hasScore = game.homeScore !== null && game.awayScore !== null;
+        const hasScore = isValidScore(game.homeScore) && isValidScore(game.awayScore);
         const scoreLabel = hasScore ? `${game.awayScore}-${game.homeScore}` : '—';
 
         let resultLabel = '<span style="color:#999;">Not scored yet</span>';
@@ -2496,7 +2506,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       // fails Number.isNaN (it only returns true for the actual number
       // NaN), which is why the first version of this check missed it.
       const isBad = (v) => v === null || v === undefined || Number.isNaN(v);
-      const needsLock = (g) => g.status === 'final' || g.homeScore !== null;
+      const needsLock = (g) => g.status === 'final' || isValidScore(g.homeScore);
 
       // Case 1: finalSpread is bad but currentSpread already holds a
       // good number — just re-lock from it, no ESPN call needed.
@@ -2586,7 +2596,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function scoreAllGames() {
-      const unscored = games.filter(g => isValidSpread(g.finalSpread) && g.homeScore === null);
+      const unscored = games.filter(g => isValidSpread(g.finalSpread) && !isValidScore(g.homeScore));
       if (unscored.length === 0) {
         showAlert('All locked games already have scores entered', 'success');
         return;
@@ -2595,7 +2605,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     function exportScores() {
-      const scoredGames = games.filter(g => g.homeScore !== null && isValidSpread(g.finalSpread));
+      const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
       if (scoredGames.length === 0) {
         showAlert('No scored games to export yet', 'error');
         return;
