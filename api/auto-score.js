@@ -103,6 +103,7 @@ module.exports = async (req, res) => {
           league: label,
           homeAbbr: home.team.abbreviation,
           awayAbbr: away.team.abbreviation,
+          gameTime: competition.date,
           status: state === 'post' ? 'final' : (state === 'in' ? 'live' : 'scheduled'),
           homeScore: state === 'pre' ? null : Number(home.score),
           awayScore: state === 'pre' ? null : Number(away.score),
@@ -115,12 +116,19 @@ module.exports = async (req, res) => {
     for (const game of unfinished) {
       // ESPN-imported games carry the event id they came from — an exact
       // match. Yahoo-pasted or manually-added games don't have one, so
-      // fall back to matching on league + both team abbreviations.
-      const match = espnGames.find(e =>
-        (game.espnEventId && e.espnEventId === game.espnEventId) ||
-        (!game.espnEventId && e.league === game.league &&
-         e.homeAbbr === game.homeAbbr && e.awayAbbr === game.awayAbbr)
-      );
+      // fall back to matching on league + both team abbreviations — but
+      // that alone isn't unique across a multi-day query window (the
+      // same two abbreviations can recur across weeks, or ESPN can reuse
+      // a short code between two different schools), so a fallback match
+      // is only trusted when its kickoff is within a day of this game's
+      // own kickoff. Without that, a still-live game could get matched to
+      // an unrelated already-finished event and marked final by mistake.
+      const match = espnGames.find(e => {
+        if (game.espnEventId) return e.espnEventId === game.espnEventId;
+        if (e.league !== game.league || e.homeAbbr !== game.homeAbbr || e.awayAbbr !== game.awayAbbr) return false;
+        const hoursApart = Math.abs(new Date(e.gameTime) - new Date(game.gameTime)) / 3600000;
+        return hoursApart <= 24;
+      });
       if (!match || match.status !== 'final') continue;
       if (match.homeScore === null || match.awayScore === null ||
           Number.isNaN(match.homeScore) || Number.isNaN(match.awayScore)) continue;

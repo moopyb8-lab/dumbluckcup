@@ -2056,6 +2056,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
             <td id="result-${game.id}">${resultHTML}</td>
             <td>
               <button class="btn btn-success" style="padding:5px 12px;font-size:12px;" onclick="saveGameScore('${game.id}')">Save</button>
+              ${game.status === 'final' ? `<button class="btn btn-secondary" style="padding:5px 12px;font-size:12px;margin-left:6px;" onclick="revertGameScore('${game.id}')" title="Clear the score and mark this game not-final — use if it was scored by mistake while still being played">↩️ Revert</button>` : ''}
             </td>
           </tr>`;
       }).join('');
@@ -2104,6 +2105,28 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       renderPlayerResults();
       updateStats();
       showAlert(`Score saved: ${game.awayTeam} ${awayScore} - ${game.homeTeam} ${homeScore}`, 'success');
+    }
+
+    // Undoes a game getting marked final by mistake (e.g. an ESPN sync
+    // matched it to the wrong event while it was still being played) —
+    // clears the score and puts status back to scheduled so it drops out
+    // of everyone's standings until it's actually over and gets scored
+    // again for real. The locked spread is left alone; only the outcome
+    // is being undone here, not when the line was captured at kickoff.
+    function revertGameScore(gameId) {
+      const game = games.find(g => g.id === gameId);
+      if (!game) return;
+      if (!confirm(`Clear the score for ${game.awayTeam} @ ${game.homeTeam} and mark it not final?`)) return;
+
+      game.homeScore = null;
+      game.awayScore = null;
+      game.status = 'scheduled';
+
+      saveGames();
+      renderScoreEntryTable();
+      renderPlayerResults();
+      updateStats();
+      showAlert(`Reverted: ${game.awayTeam} @ ${game.homeTeam} is no longer marked final`, 'success');
     }
 
     function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {
