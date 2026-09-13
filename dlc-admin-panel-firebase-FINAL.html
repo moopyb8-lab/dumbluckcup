@@ -1035,6 +1035,24 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     </div>
   </div>
 
+  <!-- Edit Player Picks Modal -->
+  <div class="modal" id="editPicksModal">
+    <div class="modal-content" style="max-width:640px;">
+      <h2 id="editPicksTitle">Edit Picks</h2>
+      <p style="color:#666;font-size:13px;margin:-10px 0 14px;">
+        Every game loaded for this week, including ones already started or over —
+        click a team to set the pick, click the same team again (or ✕) to remove it.
+        This bypasses the normal pick-lock, for entering picks on a player's behalf.
+      </p>
+      <div id="editPicksCount" style="font-size:13px;font-weight:600;color:#666;margin-bottom:10px;"></div>
+      <div id="editPicksGamesList" style="max-height:50vh;overflow-y:auto;"></div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button type="button" class="btn btn-primary" style="flex:1;" onclick="saveEditedPicks()">Save Picks</button>
+        <button type="button" class="btn btn-secondary" onclick="closeEditPicksModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Submitted Picks Tab -->
   <div class="tab-content" data-content="picks">
 
@@ -2028,6 +2046,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
               <strong>${name}</strong>
               <div style="display:flex;align-items:center;gap:12px;">
                 <span style="font-size:13px;color:${count >= 10 ? '#00c48c' : '#999'};font-weight:600;">${count} / 10 picks</span>
+                <button onclick="openEditPicksModal('${name}')" style="background:none;border:1px solid #667eea;color:#667eea;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Edit</button>
                 ${count > 0 ? `<button onclick="clearPlayerPicks('${name}')" style="background:none;border:1px solid #c0392b;color:#c0392b;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;">🗑️ Clear</button>` : ''}
               </div>
             </div>
@@ -2049,6 +2068,112 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         console.error(`Failed to clear ${player}'s picks:`, e);
         showAlert(`Failed to clear ${player}'s picks.`, 'error');
       }
+    }
+
+    // Lets the admin set/change a player's picks by hand, for every game
+    // currently loaded this week — including ones already started or
+    // final. The public picks page blocks that on purpose once a game
+    // starts, but some players need picks entered for them after the
+    // fact (missed the deadline, unfamiliar with the site, etc.), and
+    // there's nothing in Firebase's rules stopping the admin panel from
+    // writing picks directly regardless of kickoff time.
+    let editingPlayer = null;
+    let editingPicks = {};
+
+    async function openEditPicksModal(player) {
+      editingPlayer = player;
+      document.getElementById('editPicksTitle').textContent = `Edit ${player}'s Picks`;
+      document.getElementById('editPicksGamesList').innerHTML = '<p style="color:#999;">Loading...</p>';
+      document.getElementById('editPicksModal').classList.add('active');
+
+      try {
+        editingPicks = await DLC_DB.loadPlayerPicks(player) || {};
+      } catch (e) {
+        console.error(`Failed to load ${player}'s picks:`, e);
+        editingPicks = {};
+      }
+
+      renderEditPicksList();
+    }
+
+    function renderEditPicksList() {
+      const list = document.getElementById('editPicksGamesList');
+      document.getElementById('editPicksCount').textContent = `${Object.keys(editingPicks).length} / 10 picks`;
+
+      if (games.length === 0) {
+        list.innerHTML = '<p style="color:#999;">No games loaded for this week.</p>';
+        return;
+      }
+
+      const sorted = [...games].sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
+
+      list.innerHTML = sorted.map(game => {
+        const spread = isValidSpread(game.finalSpread) ? game.finalSpread
+                     : isValidSpread(game.currentSpread) ? game.currentSpread
+                     : null;
+        const homeFavored = spread !== null && spread < 0;
+        const spreadMag = spread !== null ? Math.abs(spread) : null;
+
+        const awayLabel = spread === null ? 'PK' : (homeFavored ? `+${spreadMag}` : `-${spreadMag}`);
+        const homeLabel = spread === null ? 'PK' : (homeFavored ? `-${spreadMag}` : `+${spreadMag}`);
+        const awaySide = homeFavored ? 'underdog' : 'favorite';
+        const homeSide = homeFavored ? 'favorite' : 'underdog';
+
+        const currentPick = editingPicks[game.id];
+        const awayPicked = currentPick && currentPick.team === game.awayTeam;
+        const homePicked = currentPick && currentPick.team === game.homeTeam;
+        const esc = (s) => s.replace(/'/g, "\\'");
+
+        return `
+          <div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="flex-basis:100%;font-size:11px;color:#999;">
+              ${new Date(game.gameTime).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              ${game.status === 'final' ? ' · Final' : game.status === 'live' ? ' · Live' : ''}
+            </div>
+            <button type="button" onclick="toggleEditPick('${game.id}', '${esc(game.awayTeam)}', '${awayLabel}', '${awaySide}')"
+              style="flex:1;min-width:130px;padding:8px 10px;border-radius:6px;border:2px solid ${awayPicked ? '#667eea' : '#ddd'};background:${awayPicked ? '#eef1ff' : '#fff'};font-size:13px;font-weight:600;cursor:pointer;">
+              ${game.awayTeam} <span style="color:#999;font-weight:400;">${awayLabel}</span>
+            </button>
+            <button type="button" onclick="toggleEditPick('${game.id}', '${esc(game.homeTeam)}', '${homeLabel}', '${homeSide}')"
+              style="flex:1;min-width:130px;padding:8px 10px;border-radius:6px;border:2px solid ${homePicked ? '#667eea' : '#ddd'};background:${homePicked ? '#eef1ff' : '#fff'};font-size:13px;font-weight:600;cursor:pointer;">
+              ${game.homeTeam} <span style="color:#999;font-weight:400;">${homeLabel}</span>
+            </button>
+            ${currentPick ? `<button type="button" onclick="toggleEditPick('${game.id}', null)" title="Remove pick" style="padding:8px 10px;border-radius:6px;border:1px solid #c0392b;color:#c0392b;background:#fff;cursor:pointer;font-size:12px;">✕</button>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    function toggleEditPick(gameId, team, spread, side) {
+      if (team === null) {
+        delete editingPicks[gameId];
+      } else {
+        const existing = editingPicks[gameId];
+        if (existing && existing.team === team) {
+          delete editingPicks[gameId]; // clicking the already-picked team again removes it
+        } else {
+          editingPicks[gameId] = { team, spread, side, pickedAt: new Date().toISOString(), gameId };
+        }
+      }
+      renderEditPicksList();
+    }
+
+    async function saveEditedPicks() {
+      if (!editingPlayer) return;
+      try {
+        await DLC_DB.savePlayerPicks(editingPlayer, editingPicks);
+        showAlert(`✅ Saved picks for ${editingPlayer}`, 'success');
+        closeEditPicksModal();
+        renderSubmittedPicks();
+      } catch (e) {
+        console.error('Failed to save edited picks:', e);
+        showAlert(`Failed to save picks: ${e.message}`, 'error');
+      }
+    }
+
+    function closeEditPicksModal() {
+      document.getElementById('editPicksModal').classList.remove('active');
+      editingPlayer = null;
+      editingPicks = {};
     }
 
     function renderScoresTab() {
