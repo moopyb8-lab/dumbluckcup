@@ -916,6 +916,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     <div class="controls" style="margin-bottom:16px;">
       <button class="btn btn-primary" onclick="syncFinalScoresFromESPN()">✅ Score Games That Are Over</button>
       <button class="btn btn-secondary" onclick="fixMissingSpreadsFromESPN()">🩹 Fix Missing/NaN Spreads (ESPN)</button>
+      <button class="btn btn-secondary" onclick="revertAllScores()">↩️ Revert All Scored Games</button>
       <button class="btn btn-secondary" onclick="scoreAllGames()">⚡ Calculate All Scores</button>
       <button class="btn btn-secondary" onclick="exportScores()">📥 Export Scores (CSV)</button>
       <div style="margin-left:auto;font-size:13px;color:#666;">
@@ -2127,6 +2128,34 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       renderPlayerResults();
       updateStats();
       showAlert(`Reverted: ${game.awayTeam} @ ${game.homeTeam} is no longer marked final`, 'success');
+    }
+
+    // Bulk version of revertGameScore() — undoes every currently-final
+    // game in one shot, for when a bad ESPN sync marked several games
+    // final while they were still being played. This clears score/status
+    // on EVERY final game, including ones that really are over, since
+    // there's no reliable way from here to tell "wrongly scored just now"
+    // apart from "correctly scored last week" — the confirm dialog shows
+    // the count so it's obvious if that's more than expected.
+    function revertAllScores() {
+      const finalGames = games.filter(g => g.status === 'final');
+      if (finalGames.length === 0) {
+        showAlert('No final games to revert', 'error');
+        return;
+      }
+      if (!confirm(`This clears the score and un-finalizes ALL ${finalGames.length} currently-final game(s) — including any that are genuinely over, since there's no way to tell them apart automatically. Locked spreads are left alone. Continue?`)) return;
+
+      for (const game of finalGames) {
+        game.homeScore = null;
+        game.awayScore = null;
+        game.status = 'scheduled';
+      }
+
+      saveGames();
+      renderScoreEntryTable();
+      renderPlayerResults();
+      updateStats();
+      showAlert(`Reverted ${finalGames.length} game(s) — none are marked final anymore`, 'success');
     }
 
     function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {
