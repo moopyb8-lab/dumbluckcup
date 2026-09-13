@@ -3,7 +3,7 @@
     { "source": "/", "destination": "/dlc-picks-firebase-FINAL.html" }
   ],
   "crons": [
-    { "path": "/api/auto-score", "schedule": "0 * * * *" }
+    { "path": "/api/auto-score", "schedule": "0 5 * * *" }
   ],
   "headers": [
     {
