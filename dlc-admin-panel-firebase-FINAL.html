@@ -2279,7 +2279,12 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     // no separate manual lock needed.
     async function fixMissingSpreadsFromESPN() {
       const statusEl = document.getElementById('spreadFixStatus');
-      const isBad = (v) => v === null || Number.isNaN(v);
+      // Firebase silently drops object keys whose value is undefined on
+      // write (JSON.stringify omits them), so a field that was NaN when
+      // saved can come back missing entirely rather than as NaN. undefined
+      // fails Number.isNaN (it only returns true for the actual number
+      // NaN), which is why the first version of this check missed it.
+      const isBad = (v) => v === null || v === undefined || Number.isNaN(v);
       const needsLock = (g) => g.status === 'final' || g.homeScore !== null;
 
       // Case 1: finalSpread is bad but currentSpread already holds a
