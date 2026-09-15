@@ -3390,95 +3390,141 @@ function fillAllEmails() {
 }
 
 // ── Email Generation ────────────────────────────────────────────────
+// This used to run its own copy of the scoring logic (calculateGamePoints)
+// which didn't match the real one: it read a "lockedSpread" field that
+// doesn't exist anywhere in this app (always falling back to currentSpread,
+// not the actual locked finalSpread), used the stale pick.side instead of
+// deriving it fresh, defaulted every game's week to a hardcoded 8, and
+// pulled its player list from whatever names existed in Firebase instead
+// of the real 12-player roster. None of that agreed with what the
+// leaderboard actually shows. Now it calls the exact same
+// scorePickResult()/sideOfPick()/isValidScore()/isValidSpread() the rest
+// of this app uses, restricted to PLAYER_EMAILS' roster, so the email
+// can't disagree with the site.
 async function generateWeeklyEmail() {
-  const week = document.getElementById('emailWeek').value;
-  
-  // Load all data
+  const week = parseInt(document.getElementById('emailWeek').value);
+
   const allPicks = await DLC_DB.loadAllPlayerPicks();
-  const games = await DLC_DB.loadGames();
-  
-  // Calculate standings
-  const standings = calculateStandings(allPicks, games);
-  
-  // Generate email HTML
+  const allGames = await DLC_DB.loadGames();
+
+  const standings = calculateStandings(allPicks, allGames);
+
   const emailHTML = `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #000;">
   <div style="background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
     <h1 style="margin: 0; font-size: 32px; color: #000;">🏈 Dumb Luck Cup</h1>
     <p style="margin: 10px 0 0 0; font-size: 18px; color: rgba(0,0,0,0.7);">Week ${week} Results</p>
   </div>
-  
-  <div style="padding: 30px; background: #fff;">
-    <h2 style="color: #333; margin-bottom: 20px;">🏆 Week ${week} Winners</h2>
+
+  <div style="padding: 30px; background: #000;">
+    <h2 style="color: #f5c518; margin-bottom: 20px;">🏆 Week ${week} Winners</h2>
     ${generateWeekTopThree(standings, week)}
-    
-    <h2 style="color: #333; margin: 30px 0 20px 0;">📊 Season Standings</h2>
+
+    <h2 style="color: #f5c518; margin: 30px 0 20px 0;">📋 How Everyone Did — Week ${week}</h2>
+    ${generateFullWeekBreakdown(standings, week)}
+
+    <h2 style="color: #f5c518; margin: 30px 0 20px 0;">📊 Season Standings</h2>
     ${generateStandingsTable(standings)}
-    
-    <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
-      <p style="margin: 0; color: #666; font-size: 14px; text-align: center;">
-        Make your picks for Week ${parseInt(week) + 1} at<br>
-        <a href="https://dumb-luck-cup-static.vercel.app" style="color: #667eea; text-decoration: none; font-weight: 600;">
-          dumb-luck-cup-static.vercel.app
+
+    <div style="margin-top: 30px; padding: 20px; background: #111; border-radius: 8px;">
+      <p style="margin: 0; color: #ccc; font-size: 14px; text-align: center;">
+        Make your picks for Week ${week + 1} at<br>
+        <a href="https://www.dumbluckcup.com" style="color: #667eea; text-decoration: none; font-weight: 600;">
+          dumbluckcup.com
         </a>
       </p>
     </div>
   </div>
-  
-  <div style="padding: 20px; background: #f5f5f5; text-align: center; border-radius: 0 0 12px 12px;">
+
+  <div style="padding: 20px; background: #000; text-align: center; border-radius: 0 0 12px 12px; border-top: 1px solid #333;">
     <p style="margin: 0; color: #999; font-size: 12px;">
       Dumb Luck Cup • Est. 2013 • 13 Seasons of Glory
     </p>
   </div>
 </div>
   `;
-  
+
   document.getElementById('emailContent').innerHTML = emailHTML;
   document.getElementById('emailPreview').style.display = 'block';
 }
 
 function generateWeekTopThree(standings, week) {
   const weekStandings = standings
-    .map(s => ({
-      player: s.player,
-      weekPoints: s.weeks.find(w => w.week === parseInt(week))?.points || 0
-    }))
-    .sort((a, b) => b.weekPoints - a.weekPoints)
+    .map(s => ({ player: s.player, week: s.weeks.find(w => w.week === week) }))
+    .filter(s => s.week)
+    .sort((a, b) => b.week.points - a.week.points)
     .slice(0, 3);
-    
+
+  if (weekStandings.length === 0) {
+    return '<p style="color:#999;font-size:14px;">No scored games for this week yet.</p>';
+  }
+
   const medals = ['🥇', '🥈', '🥉'];
-  
+
   return weekStandings.map((s, i) => `
-    <div style="padding: 15px; margin-bottom: 10px; background: ${i === 0 ? '#fff9e6' : '#f9f9f9'}; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="padding: 15px; margin-bottom: 10px; background: ${i === 0 ? '#2a2408' : '#111'}; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
       <div>
         <span style="font-size: 24px; margin-right: 10px;">${medals[i]}</span>
-        <strong style="font-size: 18px; color: #333;">${s.player}</strong>
+        <strong style="font-size: 18px; color: #eee;">${s.player}</strong>
       </div>
-      <div style="font-size: 20px; font-weight: bold; color: ${i === 0 ? '#f5c518' : '#666'};">
-        ${s.weekPoints} pts
+      <div style="font-size: 20px; font-weight: bold; color: ${i === 0 ? '#f5c518' : '#ccc'};">
+        ${s.week.points} pts
       </div>
     </div>
   `).join('');
+}
+
+// Full per-player breakdown for the week, not just the top 3 — every
+// roster player shows up, including 0/0 if they didn't pick that week.
+function generateFullWeekBreakdown(standings, week) {
+  const rows = standings
+    .map(s => ({ player: s.player, week: s.weeks.find(w => w.week === week) }))
+    .sort((a, b) => (b.week?.points || 0) - (a.week?.points || 0));
+
+  return `
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+      <thead>
+        <tr style="background: #111;">
+          <th style="padding: 10px; text-align: left; border-bottom: 2px solid #333; color: #ccc; font-size: 12px;">Player</th>
+          <th style="padding: 10px; text-align: center; border-bottom: 2px solid #333; color: #ccc; font-size: 12px;">Record</th>
+          <th style="padding: 10px; text-align: right; border-bottom: 2px solid #333; color: #ccc; font-size: 12px;">Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr style="border-bottom: 1px solid #222;">
+            <td style="padding: 8px 10px; color: #eee; font-size: 14px;">${r.player}</td>
+            <td style="padding: 8px 10px; text-align: center; color: #999; font-size: 13px;">
+              ${r.week ? `${r.week.wins}-${r.week.losses}-${r.week.pushes}` : '—'}
+            </td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 600; color: #f5c518; font-size: 14px;">
+              ${r.week ? r.week.points : 0}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 function generateStandingsTable(standings) {
   return `
     <table style="width: 100%; border-collapse: collapse;">
       <thead>
-        <tr style="background: #f5f5f5;">
-          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Rank</th>
-          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Player</th>
-          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Total Points</th>
+        <tr style="background: #111;">
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #333; color: #ccc;">Rank</th>
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #333; color: #ccc;">Player</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #333; color: #ccc;">Total Points</th>
         </tr>
       </thead>
       <tbody>
-        ${standings.slice(0, 10).map((s, i) => `
-          <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px; color: #666;">${i + 1}</td>
-            <td style="padding: 10px; font-weight: ${i < 3 ? '600' : '400'};">
+        ${standings.map((s, i) => `
+          <tr style="border-bottom: 1px solid #222;">
+            <td style="padding: 10px; color: #999;">${i + 1}</td>
+            <td style="padding: 10px; color: #eee; font-weight: ${i < 3 ? '600' : '400'};">
               ${i < 3 ? ['🥇', '🥈', '🥉'][i] + ' ' : ''}${s.player}
             </td>
-            <td style="padding: 10px; text-align: right; font-weight: 600; color: ${i === 0 ? '#f5c518' : '#333'};">
+            <td style="padding: 10px; text-align: right; font-weight: 600; color: ${i === 0 ? '#f5c518' : '#eee'};">
               ${s.totalPoints}
             </td>
           </tr>
@@ -3488,56 +3534,41 @@ function generateStandingsTable(standings) {
   `;
 }
 
+// Roster-restricted (same 12 real players everywhere else in this app),
+// using the shared scoring functions so this can never disagree with the
+// leaderboard or admin panel. Every roster player appears even at 0
+// points; per-week records (wins/losses/pushes) are tracked alongside
+// points so the email can show a real "how everyone did" breakdown, not
+// just a point total.
 function calculateStandings(allPicks, games) {
-  const standings = [];
-  
-  for (const [playerName, playerPicks] of Object.entries(allPicks)) {
+  const roster = typeof PLAYER_EMAILS !== 'undefined' ? Object.keys(PLAYER_EMAILS) : Object.keys(allPicks);
+
+  return roster.map(playerName => {
+    const playerPicks = allPicks[playerName] || {};
     let totalPoints = 0;
     const weeks = [];
-    
-    // Calculate points for each game
+
     for (const [gameId, pick] of Object.entries(playerPicks)) {
       const game = games.find(g => g.id === gameId);
-      if (game && game.status === 'final') {
-        const points = calculateGamePoints(pick, game);
-        totalPoints += points;
-        
-        // Group by week (you'll need to add week field to games)
-        const week = game.week || 8; // Default to week 8 for now
-        let weekData = weeks.find(w => w.week === week);
-        if (!weekData) {
-          weekData = { week, points: 0 };
-          weeks.push(weekData);
-        }
-        weekData.points += points;
-      }
-    }
-    
-    standings.push({ player: playerName, totalPoints, weeks });
-  }
-  
-  return standings.sort((a, b) => b.totalPoints - a.totalPoints);
-}
+      if (!game || !isValidScore(game.homeScore) || !isValidScore(game.awayScore) || !isValidSpread(game.finalSpread)) continue;
 
-function calculateGamePoints(pick, game) {
-  // Implement your 2/1/0 scoring logic here
-  // This is a simplified version - adjust based on your actual scoring
-  const homeScore = game.homeScore || 0;
-  const awayScore = game.awayScore || 0;
-  const spread = game.lockedSpread || game.currentSpread;
-  
-  const margin = homeScore - awayScore;
-  const coverMargin = margin + spread;
-  
-  let pickedTeamCovered = false;
-  if (pick.side === 'favorite') {
-    pickedTeamCovered = coverMargin > 0;
-  } else {
-    pickedTeamCovered = coverMargin < 0;
-  }
-  
-  if (Math.abs(coverMargin) < 0.5) return 1; // Push
-  return pickedTeamCovered ? 2 : 0; // Win or loss
+      const { result, points } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick));
+      totalPoints += points;
+
+      const week = game.week;
+      let weekData = weeks.find(w => w.week === week);
+      if (!weekData) {
+        weekData = { week, points: 0, wins: 0, losses: 0, pushes: 0 };
+        weeks.push(weekData);
+      }
+      weekData.points += points;
+      if (result === 'WIN') weekData.wins++;
+      else if (result === 'PUSH') weekData.pushes++;
+      else weekData.losses++;
+    }
+
+    return { player: playerName, totalPoints, weeks };
+  }).sort((a, b) => b.totalPoints - a.totalPoints);
 }
 
 function copyEmailHTML() {
