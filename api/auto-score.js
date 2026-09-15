@@ -143,16 +143,20 @@ module.exports = async (req, res) => {
       if (match.homeScore === null || match.awayScore === null ||
           Number.isNaN(match.homeScore) || Number.isNaN(match.awayScore)) continue;
 
+      // The score gets loaded either way — a missing spread used to skip
+      // the whole game, which meant it never showed up as final at all
+      // until someone noticed and set a spread first. Now it always loads
+      // with its real score; only the lock is skipped when there's no
+      // spread to lock (never set, or a "No Available Spread" PK game),
+      // leaving finalSpread null so it's correctly excluded from scoring
+      // until the admin sets a spread by hand and locks it themselves.
       if (!isValidSpread(game.finalSpread)) {
-        // Can't score a cover without a locked spread, and can't lock a
-        // spread that was never set (a "No Available Spread" PK game) —
-        // leave those for the admin to review by hand.
-        if (!isValidSpread(game.currentSpread)) {
+        if (isValidSpread(game.currentSpread)) {
+          game.finalSpread = game.currentSpread;
+          locked++;
+        } else {
           skippedNoSpread++;
-          continue;
         }
-        game.finalSpread = game.currentSpread;
-        locked++;
       }
 
       game.homeScore = match.homeScore;

@@ -1412,20 +1412,25 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     
     function renderSpreadsTable() {
       const tbody = document.getElementById('spreadsTableBody');
-      const scheduled = games.filter(g => g.status === 'scheduled');
+      // Not just "scheduled" — a game can load with its real score but no
+      // spread (ESPN had no line to lock at score-load time), and it
+      // still needs to show up here so the admin can type one in and
+      // lock it by hand. Anything not yet locked belongs in this list
+      // regardless of status.
+      const scheduled = games.filter(g => !isValidSpread(g.finalSpread));
       
       tbody.innerHTML = scheduled.map(game => `
         <tr>
           <td><span class="league-badge league-${game.league.toLowerCase()}">${game.league}</span></td>
-          <td class="matchup">${game.awayTeam} @ ${game.homeTeam}</td>
+          <td class="matchup">${game.awayTeam} @ ${game.homeTeam}${game.status === 'final' ? ' <span style="color:#00c48c;font-weight:600;">(Final' + (isValidScore(game.homeScore) ? `: ${game.awayScore}-${game.homeScore}` : '') + ')</span>' : ''}</td>
           <td class="game-time">${formatGameTime(game.gameTime)}</td>
-          <td><span class="spread-value">${formatSpread(game.currentSpread)}</span></td>
+          <td><span class="spread-value">${isValidSpread(game.currentSpread) ? formatSpread(game.currentSpread) : '—'}</span></td>
           <td>
-            <input 
-              type="number" 
-              step="0.5" 
-              class="spread-input" 
-              value="${game.currentSpread}"
+            <input
+              type="number"
+              step="0.5"
+              class="spread-input"
+              value="${isValidSpread(game.currentSpread) ? game.currentSpread : ''}"
               onchange="updateGameSpread('${game.id}', this.value)"
             >
           </td>
@@ -1597,19 +1602,25 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     function toggleLock(gameId) {
       const game = games.find(g => g.id === gameId);
       if (game) {
-        if (game.finalSpread === null) {
+        if (!isValidSpread(game.finalSpread)) {
           // Lock it
-          if (game.currentSpread === null || Number.isNaN(game.currentSpread)) {
+          if (!isValidSpread(game.currentSpread)) {
             showAlert(`Can't lock ${game.homeTeam} vs ${game.awayTeam} — no spread set yet.`, 'error');
             return;
           }
           game.finalSpread = game.currentSpread;
-          game.status = 'live';
+          // A game already final (loaded with its real score but no
+          // spread to lock at the time) stays final — only bump a
+          // still-unplayed game to "live" so locking doesn't demote an
+          // already-finished game back to in-progress.
+          if (game.status !== 'final') game.status = 'live';
           showAlert(`Locked ${game.homeTeam} vs ${game.awayTeam} at ${formatSpread(game.finalSpread)}`, 'success');
         } else {
           // Unlock it
           game.finalSpread = null;
-          game.status = 'scheduled';
+          // Same reasoning in reverse — don't un-final a genuinely
+          // finished game just because its lock got removed.
+          if (game.status !== 'final') game.status = 'scheduled';
           showAlert(`Unlocked ${game.homeTeam} vs ${game.awayTeam}`, 'success');
         }
         saveGames();
@@ -2607,7 +2618,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
       statusEl.textContent = `✅ Scored ${data.scored} finished game${data.scored !== 1 ? 's' : ''}` +
         (data.locked > 0 ? ` (auto-locked ${data.locked})` : '') +
-        (data.skippedNoSpread > 0 ? ` — ${data.skippedNoSpread} skipped, no spread was ever set` : '') + '.';
+        (data.skippedNoSpread > 0 ? ` — ${data.skippedNoSpread} loaded with a score but no spread was ever set, add one in the Spreads tab to lock and score ${data.skippedNoSpread !== 1 ? 'them' : 'it'}` : '') + '.';
     }
 
     // Repairs bad spreads — null or literally NaN, which "!== null"
