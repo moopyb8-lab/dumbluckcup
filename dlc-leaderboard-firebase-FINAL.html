@@ -490,6 +490,7 @@
     <h2 class="section-title">Weekly Leaderboard</h2>
     <select id="weekPickerSelect" class="refresh-btn" style="padding-right:8px;" onchange="renderWeeklyLeaderboard()"></select>
   </div>
+  <div id="weekStatusLine" style="font-size:12px;color:var(--muted);margin:-6px 0 12px;line-height:1.5;"></div>
 
   <div class="standings-table-wrap">
     <table class="standings-table">
@@ -497,7 +498,8 @@
         <tr>
           <th class="rank-col">#</th>
           <th>Player</th>
-          <th style="text-align:center;">Scored Picks</th>
+          <th style="text-align:center;" title="Covers – misses – pushes">W-L-P</th>
+          <th style="text-align:center;" title="Picks on games not yet scored">Left</th>
           <th class="total-col">Points</th>
         </tr>
       </thead>
@@ -688,52 +690,84 @@
     const select = document.getElementById('weekPickerSelect');
     const tbody = document.getElementById('weeklyLeaderboardBody');
 
-    if (weeks.length === 0) {
+    // Any week with games loaded is pickable — including the current week
+    // before a single game has been scored, so mid-week the table can say
+    // "0 of 102 scored · 120 picks still live" instead of vanishing.
+    const allWeeks = [...new Set(games.map(g => g.week).filter(w => Number.isFinite(w)))].sort((a, b) => a - b);
+    if (allWeeks.length === 0) {
       section.style.display = 'none';
       return;
     }
     section.style.display = 'block';
 
     const existingOptions = [...select.options].map(o => o.value);
-    const wantedOptions = weeks.map(String);
+    const wantedOptions = allWeeks.map(String);
     if (existingOptions.join(',') !== wantedOptions.join(',')) {
       const previousValue = select.value;
-      select.innerHTML = weeks.map(w => `<option value="${w}">Week ${w}</option>`).join('');
-      select.value = wantedOptions.includes(previousValue) ? previousValue : String(weeks[weeks.length - 1]);
+      select.innerHTML = allWeeks.map(w => `<option value="${w}">Week ${w}</option>`).join('');
+      select.value = wantedOptions.includes(previousValue) ? previousValue : String(allWeeks[allWeeks.length - 1]);
     }
 
     const selectedWeek = parseInt(select.value, 10);
-    const scoredGames = games.filter(g =>
-      isValidScore(g.homeScore) && isValidSpread(g.finalSpread) && g.week === selectedWeek
-    );
+    const weekGames = games.filter(g => g.week === selectedWeek);
+    const scoredGames = weekGames.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+    const scoredIds = new Set(scoredGames.map(g => g.id));
+    const weekIds = new Set(weekGames.map(g => g.id));
     // Same fixed roster as calculateStandings() - no stray Firebase keys.
     const roster = new Set(Object.keys(PLAYER_AVATARS));
 
+    let pendingTotal = 0;
     const weekStandings = [...roster].map(player => {
       const picks = playerData[player] || {};
-      let points = 0, pickCount = 0;
+      let points = 0, wins = 0, losses = 0, pushes = 0, pending = 0;
 
       Object.entries(picks).forEach(([gameId, pick]) => {
+        if (!weekIds.has(gameId)) return;
+        if (!scoredIds.has(gameId)) { pending++; return; }
         const game = scoredGames.find(g => g.id === gameId);
-        if (!game) return;
-        pickCount++;
-        points += scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)).points;
+        const { result, points: p } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick));
+        points += p;
+        if (result === 'WIN') wins++; else if (result === 'PUSH') pushes++; else losses++;
       });
 
-      return { player, points, pickCount };
+      pendingTotal += pending;
+      return { player, points, wins, losses, pushes, pending, scored: wins + losses + pushes };
     })
     .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player));
 
     tbody.innerHTML = weekStandings.map((s, idx) => {
       const rank = idx + 1;
+      const record = s.scored > 0 ? `${s.wins}-${s.losses}-${s.pushes}` : '—';
+      const left = s.pending > 0
+        ? `<span style="color:var(--yellow);font-weight:700;">${s.pending}</span>`
+        : (s.scored > 0 ? '<span title="All picks scored">✓</span>' : '—');
       return `
         <tr>
           <td class="rank-cell rank-${rank}">${rank}</td>
           <td class="player-cell">${getAvatar(s.player, 28)} ${s.player}</td>
-          <td style="text-align:center;color:var(--muted);font-size:13px;">${s.pickCount > 0 ? s.pickCount : '—'}</td>
+          <td style="text-align:center;font-size:13px;font-variant-numeric:tabular-nums;">${record}</td>
+          <td style="text-align:center;font-size:13px;">${left}</td>
           <td class="total-cell">${s.points}</td>
         </tr>`;
     }).join('');
+
+    // The line that says whether these numbers are final yet.
+    const statusEl = document.getElementById('weekStatusLine');
+    if (statusEl) {
+      const unscored = weekGames.length - scoredGames.length;
+      const stamp = new Date().toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      let msg;
+      if (weekGames.length === 0) {
+        msg = '';
+      } else if (unscored === 0) {
+        msg = `Final — all ${weekGames.length} games scored.`;
+      } else {
+        msg = `${scoredGames.length} of ${weekGames.length} games scored · ${unscored} still to play or score`
+            + (pendingTotal > 0 ? ` · ${pendingTotal} picks still live` : '')
+            + `. Scores update nightly after the last game.`;
+      }
+      statusEl.textContent = msg ? `${msg} As of ${stamp}.` : '';
+    }
   }
 
   // A spread field only counts as "set" if it's a real number — null,
@@ -807,7 +841,8 @@
       document.getElementById('avgScore').textContent = avg.toFixed(1);
     }
 
-    const maxWeek = Math.max(...weeks, 0);
+    // Header shows the week that is loaded, not just the last one scored.
+    const maxWeek = Math.max(...games.map(g => g.week).filter(Number.isFinite), ...weeks, 0);
     document.getElementById('currentWeek').textContent = maxWeek > 0 ? `Week ${maxWeek}` : 'Pre-Season';
   }
 

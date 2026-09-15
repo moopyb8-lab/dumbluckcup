@@ -185,6 +185,28 @@
       box-shadow: 0 4px 20px rgba(245,197,24,0.4);
     }
 
+    /* One line under the counter that answers "when do these lock?" —
+       the question the counter alone never answered. */
+    .lock-line {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(0,0,0,0.6);
+      margin-top: 8px;
+      min-height: 15px;
+    }
+    .lock-line.soon { color: #7a1f1f; }
+
+    /* Save failed: the pill goes red and says so. Before this, a failed
+       Firebase write fell back to localStorage silently and the player
+       had no way to know their picks never left the phone. */
+    .counter-pill.unsaved {
+      background: var(--red);
+      color: #fff;
+    }
+
     /* ── Filter bar ──────────────────────────────── */
     .filter-bar {
       display: flex;
@@ -702,7 +724,7 @@
     }
 
     .sub-pick-team { font-weight: 700; }
-    .sub-pick-spread { color: var(--muted); }
+    .sub-pick-spread { color: var(--muted); text-align: right; }
 
     .back-btn {
       background: var(--border);
@@ -764,62 +786,24 @@
     }
   </style>
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
-  // ── Player Avatars ─────────────────────────────────────────────────────
-  const PLAYER_AVATARS = {
-    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
-    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
-    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
-  };
-
-  function getAvatar(name, size = 32) {
-    const emoji = PLAYER_AVATARS[name] || '🏈';
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;font-size:${size*0.65}px;background:rgba(245,197,24,0.1);border-radius:50%;border:2px solid rgba(245,197,24,0.3);margin-right:8px;">${emoji}</span>`;
-  }
-
-</script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
-  // ── Player Avatars ─────────────────────────────────────────────────────
-  const PLAYER_AVATARS = {
-    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
-    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
-    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
-  };
-
-  function getAvatar(name, size = 32) {
-    const emoji = PLAYER_AVATARS[name] || '🏈';
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;font-size:${size*0.65}px;background:rgba(245,197,24,0.1);border-radius:50%;border:2px solid rgba(245,197,24,0.3);margin-right:8px;">${emoji}</span>`;
-  }
-
-</script>
-  <script src="firebase-config.js">
-  // ── Player Avatars ─────────────────────────────────────────────────────
-  const PLAYER_AVATARS = {
-    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
-    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
-    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
-  };
-
-  function getAvatar(name, size = 32) {
-    const emoji = PLAYER_AVATARS[name] || '🏈';
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;font-size:${size*0.65}px;background:rgba(245,197,24,0.1);border-radius:50%;border:2px solid rgba(245,197,24,0.3);margin-right:8px;">${emoji}</span>`;
-  }
-
-</script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="fbs-conferences.js"></script>
 </head>
 <body>
 
 <!-- ── Header ─────────────────────────────────────── -->
 <header>
-  <div class="player-name-corner">Playing as <span id="playerNameDisplay">—</span> <a href="#" onclick="switchPlayer(); return false;" style="color:rgba(0,0,0,0.55); text-decoration:underline; margin-left:4px;">(switch)</a></div>
+  <div class="player-name-corner">Picking as <span id="playerNameDisplay">—</span> <a href="#" onclick="switchPlayer(); return false;" style="color:rgba(0,0,0,0.7); text-decoration:underline; margin-left:6px; font-weight:600;">Not you?</a></div>
   <div class="header-icon">🏈</div>
   <h1 class="logo">DUMB LUCK CUP</h1>
   <div class="header-subtitle" id="headerSubtitle">Week 1 · 2026 Season</div>
   <div class="pick-counter">
     <div class="counter-pill" id="counterPill">0 / 10 picks</div>
-    <button class="submit-btn" id="submitBtn" onclick="submitPicks()">Submit Picks</button>
+    <button class="submit-btn" id="submitBtn" onclick="submitPicks()">Review Picks</button>
   </div>
+  <div class="lock-line" id="lockLine"></div>
 </header>
 <nav class="page-nav">
   <a href="/" class="nav-btn">🏈 Make Picks</a>
@@ -880,8 +864,8 @@
 <!-- ── Submission overlay ─────────────────────────── -->
 <div class="submission-overlay" id="submissionOverlay">
   <div class="emoji">🏈</div>
-  <h2>Picks Locked In!</h2>
-  <p>Your 10 picks are saved. You can change them any time before kickoff.</p>
+  <h2 id="submissionTitle">Your picks are saved</h2>
+  <p id="submissionSub">Each pick locks at its own kickoff and can be changed until then.</p>
   <div class="submission-picks-list" id="submissionPicksList"></div>
   <button class="back-btn" onclick="closeSubmission()">← Back to Games</button>
 </div>
@@ -906,7 +890,7 @@
       <a href="/dlc-rules.html" style="font-size:13px; color:#e8eaf0; text-decoration:none; padding:8px 12px; background:rgba(102,126,234,0.2); border:1px solid rgba(102,126,234,0.4); border-radius:8px; font-weight:600;">📖 Rules</a>
     </div>
     <p style="color:var(--muted); font-size:14px; margin-bottom:28px; line-height:1.5;">
-      Week 1 · 2026 Season<br>Pick 10 games. Beat the spread. Be the goat.
+      <span id="modalWeekLabel">2026 Season</span><br>Pick 10 games. Beat the spread. Be the goat.
     </p>
     <select id="playerSelect" style="
       width:100%; background:var(--border); border:1px solid var(--border);
@@ -1013,6 +997,22 @@
 
     renderGames();
     updateCounter();
+    updateWeekLabel();
+  }
+
+  // The header used to say "Week 1" no matter what was loaded. Now it
+  // reads the week and season off the games themselves.
+  function updateWeekLabel() {
+    const weeks = games.map(g => g.week).filter(Number.isFinite);
+    const seasons = games.map(g => g.season).filter(Number.isFinite);
+    if (weeks.length === 0) return;
+    const week = Math.max(...weeks);
+    const season = seasons.length ? Math.max(...seasons) : new Date().getFullYear();
+    const label = `Week ${week} · ${season} Season`;
+    const h = document.getElementById('headerSubtitle');
+    const m = document.getElementById('modalWeekLabel');
+    if (h) h.textContent = label;
+    if (m) m.textContent = label;
   }
 
   async function startPicking() {
@@ -1288,6 +1288,8 @@
   
   // Check every 30 seconds for games that should lock
   setInterval(checkForGameLocks, 30000);
+  // Keep the "locks in …" countdown honest without a full re-render.
+  setInterval(updateLockLine, 60000);
 
   // ── Pick logic ───────────────────────────────────
   function makePick(gameId, team, spread, side) {
@@ -1357,14 +1359,30 @@
     return result;
   }
 
+  // Picks are written to Firebase on every tap — there is no separate
+  // "submit" step. These three track whether the last write actually
+  // landed, so the counter can say "saved" only when it is true.
+  let saveState = 'idle';   // 'idle' | 'saving' | 'saved' | 'failed'
+  let lastSavedAt = null;
+  let saveSeq = 0;
+
   async function savePicks() {
     if (!currentPlayer) return;
+    const seq = ++saveSeq;
+    saveState = 'saving';
+    updateCounter();
     try {
       await DLC_DB.savePlayerPicks(currentPlayer, picks);
+      if (seq !== saveSeq) return;          // a newer save superseded this one
+      saveState = 'saved';
+      lastSavedAt = new Date();
     } catch(e) {
-      console.warn('Firebase save failed, using localStorage');
+      console.warn('Firebase save failed, using localStorage', e);
       localStorage.setItem(`dlc_picks_${currentPlayer}`, JSON.stringify(picks));
+      if (seq !== saveSeq) return;
+      saveState = 'failed';
     }
+    updateCounter();
   }
 
   // ── Counter ──────────────────────────────────────
@@ -1374,11 +1392,60 @@
     const btn   = document.getElementById('submitBtn');
     const trayCount = document.getElementById('trayCount');
 
-    pill.textContent = `${count} / ${MAX_PICKS} picks`;
-    pill.className = 'counter-pill' + (count === MAX_PICKS ? ' complete' : count > MAX_PICKS ? ' over' : '');
+    let text, cls = 'counter-pill';
+    if (saveState === 'failed') {
+      text = `${count} / ${MAX_PICKS} — NOT saved, check your connection`;
+      cls += ' unsaved';
+    } else if (saveState === 'saving') {
+      text = `${count} / ${MAX_PICKS} · saving…`;
+    } else if (count === 0) {
+      text = `0 / ${MAX_PICKS} picks`;
+    } else if (count < MAX_PICKS) {
+      text = `${count} / ${MAX_PICKS} saved · ${MAX_PICKS - count} to go`;
+    } else if (count === MAX_PICKS) {
+      text = `${count} / ${MAX_PICKS} saved ✓`;
+      cls += ' complete';
+    } else {
+      text = `${count} / ${MAX_PICKS} — remove ${count - MAX_PICKS}`;
+      cls += ' over';
+    }
+    pill.textContent = text;
+    pill.className = cls;
 
-    btn.className = 'submit-btn' + (count === MAX_PICKS ? ' active' : '');
+    // Review is available as soon as there is anything to review.
+    btn.className = 'submit-btn' + (count > 0 ? ' active' : '');
     trayCount.textContent = count;
+    updateLockLine();
+  }
+
+  // "Next lock" — the first kickoff among this player's still-open picks,
+  // or among all open games if they have none yet.
+  function updateLockLine() {
+    const el = document.getElementById('lockLine');
+    if (!el || games.length === 0) return;
+    const now = new Date();
+    const isOpen = g => {
+      const t = new Date(g.gameTime);
+      return !Number.isNaN(t.getTime()) && now < t && g.status !== 'live' && g.status !== 'final';
+    };
+    const myIds = new Set(Object.keys(getCurrentWeekPicks()));
+    let pool = games.filter(g => isOpen(g) && myIds.has(g.id));
+    let mine = true;
+    if (pool.length === 0) { pool = games.filter(isOpen); mine = false; }
+    if (pool.length === 0) {
+      const anyGames = games.length > 0;
+      el.textContent = anyGames ? 'All games have kicked off — picks are locked' : '';
+      el.className = 'lock-line';
+      return;
+    }
+    pool.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
+    const first = new Date(pool[0].gameTime);
+    const ms = first - now;
+    const h = Math.floor(ms / 3600000), d = Math.floor(h / 24);
+    const rel = d >= 1 ? `${d}d ${h - d * 24}h` : h >= 1 ? `${h}h ${Math.floor((ms % 3600000) / 60000)}m` : `${Math.max(1, Math.floor(ms / 60000))}m`;
+    const when = first.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    el.textContent = (mine ? 'Your first pick locks ' : 'First kickoff ') + `${when} · in ${rel}`;
+    el.className = 'lock-line' + (ms < 3 * 3600000 ? ' soon' : '');
   }
 
   // ── Tray ─────────────────────────────────────────
@@ -1428,28 +1495,58 @@
   }
 
   // ── Submit ───────────────────────────────────────
+  // "Review Picks": a read-back of what is already saved, with each
+  // pick's kickoff and lock state. It writes nothing — every tap already
+  // saved — which is exactly what the heading says.
   function submitPicks() {
     const currentPicks = getCurrentWeekPicks();
-    if (Object.keys(currentPicks).length !== MAX_PICKS) return;
+    const count = Object.keys(currentPicks).length;
+    if (count === 0) return;
 
     const overlay = document.getElementById('submissionOverlay');
     const list    = document.getElementById('submissionPicksList');
+    const title   = document.getElementById('submissionTitle');
+    const sub     = document.getElementById('submissionSub');
+    const now     = new Date();
 
-    list.innerHTML = Object.entries(currentPicks).map(([gameId, pick]) => {
+    if (saveState === 'failed') {
+      title.textContent = 'These picks have NOT saved';
+      sub.textContent = 'Your phone kept a copy, but the cup has not. Check your connection and tap any pick again to retry.';
+    } else if (count < MAX_PICKS) {
+      title.textContent = `${count} of ${MAX_PICKS} picks saved`;
+      sub.textContent = `Pick ${MAX_PICKS - count} more. Each pick locks at its own kickoff — you can change any of them until then.`;
+    } else if (count > MAX_PICKS) {
+      title.textContent = `${count} picks — that is ${count - MAX_PICKS} too many`;
+      sub.textContent = `Remove ${count - MAX_PICKS} so you are at exactly ${MAX_PICKS}.`;
+    } else {
+      title.textContent = 'Your 10 picks are saved';
+      const at = lastSavedAt ? ` Last saved ${lastSavedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.` : '';
+      sub.textContent = `Nothing else to do.${at} Each pick locks at its own kickoff and can be changed until then.`;
+    }
+
+    const rows = Object.entries(currentPicks).map(([gameId, pick]) => {
+      const game = games.find(g => g.id === gameId);
+      const t = game ? new Date(game.gameTime) : null;
+      const locked = !game || now >= t || game.status === 'live' || game.status === 'final';
+      return { pick, t, locked };
+    }).sort((a, b) => (a.t || 0) - (b.t || 0));
+
+    list.innerHTML = rows.map(({ pick, t, locked }) => {
       const spreadDisplay = Number.isNaN(pick.spread)
         ? 'No spread yet'
         : (pick.side === 'favorite' ? `-${Math.abs(pick.spread)}` : `+${Math.abs(pick.spread)}`);
+      const when = t && !Number.isNaN(t.getTime())
+        ? t.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+        : '';
+      const state = locked ? '🔒 Locked' : `Locks ${when}`;
       return `
         <div class="sub-pick-item">
           <div class="sub-pick-team">${pick.team}</div>
-          <div class="sub-pick-spread">${spreadDisplay}</div>
+          <div class="sub-pick-spread">${spreadDisplay}<span style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px;">${state}</span></div>
         </div>`;
     }).join('');
 
     overlay.classList.add('active');
-
-    // In production: POST picks to your database here
-    console.log('Picks submitted:', { player: currentPlayer, picks });
   }
 
   function closeSubmission() {
