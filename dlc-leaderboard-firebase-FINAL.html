@@ -658,7 +658,7 @@
         if (!game) return;
 
         const { points } = scorePickResult(
-          game.homeScore, game.awayScore, game.finalSpread, pick.side
+          game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)
         );
 
         const week = game.week;
@@ -717,7 +717,7 @@
         const game = scoredGames.find(g => g.id === gameId);
         if (!game) return;
         pickCount++;
-        points += scorePickResult(game.homeScore, game.awayScore, game.finalSpread, pick.side).points;
+        points += scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)).points;
       });
 
       return { player, points, pickCount };
@@ -751,6 +751,18 @@
   // "!== null" check treats as if a real score were already in.
   function isValidScore(v) {
     return v !== null && v !== undefined && !Number.isNaN(v);
+  }
+
+  // A pick's stored side ('favorite'/'underdog') reflects whatever the
+  // spread looked like when the player picked — if the line that ends up
+  // locked has the other team favored (or is a forced pick'em), that
+  // stored side no longer matches reality. Deriving it fresh from the
+  // picked team vs. the locked spread's actual favorite is always
+  // correct, regardless of what the line looked like earlier.
+  function sideOfPick(game, pick) {
+    const homeFavored = game.finalSpread < 0;
+    const favoriteTeam = homeFavored ? game.homeTeam : game.awayTeam;
+    return pick.team === favoriteTeam ? 'favorite' : 'underdog';
   }
 
   function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {

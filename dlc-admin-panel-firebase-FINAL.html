@@ -2485,6 +2485,19 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       showAlert(`Cleared locks and scores on all ${games.length} game(s) — everything is back to scheduled/unlocked`, 'success');
     }
 
+    // A pick's stored side ('favorite'/'underdog') was computed against
+    // whatever spread was showing when the player picked — if the line
+    // that ends up locked has the other team favored (or is a forced
+    // pick'em like the "Games Missing a Spread" panel uses), that stored
+    // side no longer matches reality and grades backwards. Deriving it
+    // fresh from the picked team vs. the locked spread's actual favorite
+    // is always correct, regardless of what the line looked like earlier.
+    function sideOfPick(game, pick) {
+      const homeFavored = game.finalSpread < 0;
+      const favoriteTeam = homeFavored ? game.homeTeam : game.awayTeam;
+      return pick.team === favoriteTeam ? 'favorite' : 'underdog';
+    }
+
     function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {
       const homeMargin = homeScore - awayScore;
       const coverMargin = homeMargin + lockedSpread;
@@ -2560,7 +2573,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
           pickCount++;
           const { result, points } = scorePickResult(
-            game.homeScore, game.awayScore, game.finalSpread, pick.side
+            game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)
           );
 
           totalPoints += points;
@@ -2638,7 +2651,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
 
         let resultLabel = '<span style="color:#999;">Not scored yet</span>';
         if (hasScore && isValidSpread(game.finalSpread)) {
-          const { result, points } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, pick.side);
+          const { result, points } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick));
           const style = result === 'WIN' ? 'color:#15803d;font-weight:600;'
                       : result === 'PUSH' ? 'color:#854d0e;font-weight:600;'
                       : 'color:#991b1b;font-weight:600;';
@@ -2870,7 +2883,7 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         Object.entries(picks).forEach(([gameId, pick]) => {
           const game = scoredGames.find(g => g.id === gameId);
           if (!game) return;
-          const { result, points } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, pick.side);
+          const { result, points } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick));
           rows.push([
             player,
             `${game.awayTeam} @ ${game.homeTeam}`,
