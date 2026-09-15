@@ -948,6 +948,21 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       </table>
     </div>
 
+    <!-- Games Missing a Spread — a dedicated spot for games ESPN never
+         gave a usable line for, so the score and spread can both be set
+         by hand in one place instead of hunting across the Spreads and
+         Score tables separately. -->
+    <div style="background:#fff5f5;border-left:4px solid #c0392b;border-radius:8px;padding:18px 20px;margin-bottom:28px;">
+      <h3 style="margin-bottom:6px;color:#c0392b;">⚠️ Games Missing a Spread</h3>
+      <p style="color:#444;font-size:13px;line-height:1.7;margin-bottom:14px;">
+        ESPN never had a usable line for these — enter the score, type the point
+        spread, then click whichever team was favored (getting the points, not
+        giving them, if the pick was on the dog). Saving locks the spread and
+        scores the game in one step.
+      </p>
+      <div id="needsSpreadList" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+
     <!-- Player Results Table -->
     <h3 style="margin-bottom:12px;">Player Pick Results</h3>
     <div style="overflow-x:auto;border:1px solid #e0e0e0;border-radius:8px;">
@@ -2193,7 +2208,102 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       document.getElementById('finalCount').textContent = locked.length;
       document.getElementById('scoredCount').textContent = scored.length;
       renderScoreEntryTable();
+      renderNeedsSpreadList();
       renderPlayerResults(); // async; fills the table in once Firebase picks load
+    }
+
+    // Per-game score/spread inputs for the "Games Missing a Spread" panel,
+    // keyed by game id, so an in-progress edit survives this list
+    // re-rendering (e.g. after another game in the list gets saved).
+    const needsSpreadDraft = {};
+
+    function renderNeedsSpreadList() {
+      const container = document.getElementById('needsSpreadList');
+      const broken = games.filter(g => !isValidSpread(g.finalSpread));
+
+      if (broken.length === 0) {
+        container.innerHTML = '<p style="color:#999;font-size:13px;">None — every game has a locked spread.</p>';
+        return;
+      }
+
+      container.innerHTML = broken.map(game => {
+        const draft = needsSpreadDraft[game.id] || {};
+        const awayVal = draft.awayScore ?? (isValidScore(game.awayScore) ? game.awayScore : '');
+        const homeVal = draft.homeScore ?? (isValidScore(game.homeScore) ? game.homeScore : '');
+        const spreadVal = draft.magnitude ?? (isValidSpread(game.currentSpread) ? Math.abs(game.currentSpread) : '');
+        const favored = draft.favored ?? (isValidSpread(game.currentSpread) ? (game.currentSpread < 0 ? 'home' : 'away') : null);
+
+        return `
+          <div style="background:#fff;border:1px solid #f3c6c6;border-radius:8px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+              <strong style="font-size:14px;">${game.awayTeam} @ ${game.homeTeam}</strong>
+              <span style="font-size:12px;color:#999;">${formatGameTime(game.gameTime)}${game.status === 'final' ? ' · already has a score' : ''}</span>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <label style="font-size:12px;color:#666;">Away score
+                <input type="number" min="0" max="99" value="${awayVal}" style="width:60px;padding:5px;margin-left:4px;border:1px solid #d0d0d0;border-radius:5px;"
+                  onchange="setNeedsSpreadDraft('${game.id}', 'awayScore', this.value)">
+              </label>
+              <label style="font-size:12px;color:#666;">Home score
+                <input type="number" min="0" max="99" value="${homeVal}" style="width:60px;padding:5px;margin-left:4px;border:1px solid #d0d0d0;border-radius:5px;"
+                  onchange="setNeedsSpreadDraft('${game.id}', 'homeScore', this.value)">
+              </label>
+              <label style="font-size:12px;color:#666;">Spread
+                <input type="number" step="0.5" min="0" value="${spreadVal}" placeholder="e.g. 3.5" style="width:70px;padding:5px;margin-left:4px;border:1px solid #d0d0d0;border-radius:5px;"
+                  onchange="setNeedsSpreadDraft('${game.id}', 'magnitude', this.value)">
+              </label>
+              <div style="display:flex;gap:6px;">
+                <button type="button" onclick="setNeedsSpreadDraft('${game.id}', 'favored', 'away')"
+                  style="padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${favored === 'away' ? '#667eea' : '#ddd'};background:${favored === 'away' ? '#eef1ff' : '#fff'};">
+                  ${game.awayTeam} favored
+                </button>
+                <button type="button" onclick="setNeedsSpreadDraft('${game.id}', 'favored', 'home')"
+                  style="padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${favored === 'home' ? '#667eea' : '#ddd'};background:${favored === 'home' ? '#eef1ff' : '#fff'};">
+                  ${game.homeTeam} favored
+                </button>
+              </div>
+              <button type="button" class="btn btn-success" style="padding:6px 14px;font-size:12px;" onclick="saveNeedsSpreadGame('${game.id}')">💾 Save &amp; Lock</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function setNeedsSpreadDraft(gameId, field, value) {
+      needsSpreadDraft[gameId] = { ...needsSpreadDraft[gameId], [field]: value };
+      renderNeedsSpreadList();
+    }
+
+    function saveNeedsSpreadGame(gameId) {
+      const game = games.find(g => g.id === gameId);
+      if (!game) return;
+      const draft = needsSpreadDraft[gameId] || {};
+
+      const magnitude = parseFloat(draft.magnitude);
+      if (!draft.favored || Number.isNaN(magnitude) || magnitude < 0) {
+        showAlert('Enter a spread and pick which team was favored first', 'error');
+        return;
+      }
+      const signedSpread = draft.favored === 'home' ? -magnitude : magnitude;
+
+      game.currentSpread = signedSpread;
+      game.finalSpread = signedSpread;
+      game.spreadLastUpdated = new Date().toISOString();
+
+      const awayScore = draft.awayScore !== undefined && draft.awayScore !== '' ? parseInt(draft.awayScore) : (isValidScore(game.awayScore) ? game.awayScore : null);
+      const homeScore = draft.homeScore !== undefined && draft.homeScore !== '' ? parseInt(draft.homeScore) : (isValidScore(game.homeScore) ? game.homeScore : null);
+      if (isValidScore(awayScore) && isValidScore(homeScore)) {
+        game.awayScore = awayScore;
+        game.homeScore = homeScore;
+        game.status = 'final';
+      }
+
+      delete needsSpreadDraft[gameId];
+      saveGames();
+      updateStats();
+      renderGamesTable();
+      renderSpreadsTable();
+      renderScoresTab();
+      showAlert(`Saved ${game.awayTeam} @ ${game.homeTeam} — spread locked${game.status === 'final' ? ' and scored' : ''}`, 'success');
     }
 
     function renderScoreEntryTable() {
