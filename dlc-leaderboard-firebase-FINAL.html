@@ -212,6 +212,29 @@
       letter-spacing: 1px;
     }
 
+    /* The medals are for the season, not the week showing below them.
+       Without a heading people read the podium as "this week's winners",
+       which is wrong from Week 2 onwards. */
+    .podium-heading {
+      text-align: center;
+      margin: 0 0 18px;
+    }
+
+    .podium-heading h2 {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin: 0;
+      color: var(--gold);
+    }
+
+    .podium-heading p {
+      font-size: 11px;
+      color: var(--muted);
+      margin: 4px 0 0;
+    }
+
     /* ── Full standings table ───────────────────── */
     .standings-section {
       padding: 20px 12px;
@@ -479,6 +502,10 @@
 
 <!-- ── Podium ─────────────────────────────────────── -->
 <div class="podium-container" id="podiumContainer">
+  <div class="podium-heading">
+    <h2>🏆 Overall Standings</h2>
+    <p>Leaders for the whole season, not just this week</p>
+  </div>
   <div class="podium" id="podium">
     <!-- Populated by JS -->
   </div>
@@ -888,7 +915,7 @@
         <span class="podium-medal">${medals[idx]}</span>
         <div class="podium-name">${getAvatar(s.player, 40)} ${s.player}</div>
         <div class="podium-points">${s.totalPoints}</div>
-        <div class="podium-label">Points</div>
+        <div class="podium-label">Season Points</div>
       </div>
     `).join('');
 

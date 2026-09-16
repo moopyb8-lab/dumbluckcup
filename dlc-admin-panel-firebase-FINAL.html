@@ -1138,8 +1138,8 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
   <!-- Email Results Tab -->
   <div class="tab-content" data-content="email">
     <div class="panel-header" style="margin-bottom:20px;">
-      <h2>📧 Email Week Results</h2>
-      <p style="color:#666;font-size:14px;">Generate and send weekly results to all players</p>
+      <h2>📧 Email the Players</h2>
+      <p style="color:#666;font-size:14px;">Announce a new week, or send the results once it is done</p>
     </div>
 
     <div style="margin-bottom:20px;">
@@ -1162,10 +1162,19 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
              style="width:150px; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
     </div>
 
-    <button onclick="generateWeeklyEmail()"
-            style="background:#667eea; color:white; border:none; padding:12px 24px; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer;">
-      📧 Generate Email
-    </button>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      <button onclick="generatePicksLiveEmail()"
+              style="background:#00c48c; color:white; border:none; padding:12px 24px; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer;">
+        📣 Generate "Picks Are Live"
+      </button>
+      <button onclick="generateWeeklyEmail()"
+              style="background:#667eea; color:white; border:none; padding:12px 24px; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer;">
+        📧 Generate Week Results
+      </button>
+    </div>
+    <p style="font-size:12px; color:#666; margin-top:8px;">
+      Send the green one at the start of a week, once the slate is imported. Send the blue one after the games are scored.
+    </p>
 
     <div id="emailPreview" style="margin-top:30px; padding:20px; background:#f9f9f9; border-radius:8px; display:none;">
       <h3 style="margin-bottom:15px;">Email Preview:</h3>
@@ -1258,7 +1267,8 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       initESPNDateDefaults();
       loadGames();
       updateStats();
-      
+      initEmailWeekDefault();
+
       // Auto-refresh every 5 minutes
       setInterval(() => {
         if (document.visibilityState === 'visible') {
@@ -3571,15 +3581,164 @@ function calculateStandings(allPicks, games) {
   }).sort((a, b) => b.totalPoints - a.totalPoints);
 }
 
-function copyEmailHTML() {
-  const emailContent = document.getElementById('emailContent').innerHTML;
-  
-  navigator.clipboard.writeText(emailContent).then(() => {
-    alert('✅ HTML copied! Paste into Gmail/Outlook compose window.\n\nTip: In Gmail, click "⋮" → "Default to plain text" to toggle OFF, then paste.');
-  }).catch(err => {
-    console.error('Copy failed:', err);
-    alert('❌ Copy failed. Please select the email content and copy manually.');
-  });
+async function copyEmailHTML() {
+  const node = document.getElementById('emailContent');
+  const html = node.innerHTML;
+
+  // writeText() puts the markup on the clipboard as PLAIN TEXT, which is why
+  // pasting into Gmail used to produce a wall of angle brackets. The clipboard
+  // needs the content flagged as text/html for Gmail to render it as an email.
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html':  new Blob([html],            { type: 'text/html'  }),
+        'text/plain': new Blob([node.innerText],  { type: 'text/plain' })
+      })
+    ]);
+    alert('✅ Copied as formatted email.\n\nPaste straight into a Gmail compose window — it will arrive laid out, not as code.');
+    return;
+  } catch (err) {
+    console.warn('ClipboardItem write failed, falling back to selection copy:', err);
+  }
+
+  // Fallback for older browsers: select the rendered preview and copy the
+  // selection, which the browser also puts on the clipboard as rich text.
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    if (!ok) throw new Error('execCommand returned false');
+    alert('✅ Copied as formatted email.\n\nPaste straight into a Gmail compose window.');
+  } catch (err2) {
+    console.error('Copy failed:', err2);
+    alert('❌ Copy failed. Select the preview above and copy it by hand.');
+  }
+}
+
+// The Week field used to sit at a hard-coded 8, left over from testing, which
+// meant every email started life pointing at the wrong week. Take it from the
+// data instead: the newest week that has games is the one being emailed about.
+async function initEmailWeekDefault() {
+  const field = document.getElementById('emailWeek');
+  if (!field) return;
+  try {
+    const allGames = await DLC_DB.loadGames();
+    const weeks = (allGames || []).map(g => g && g.week).filter(Number.isFinite);
+    if (weeks.length) field.value = Math.max(...weeks);
+  } catch (err) {
+    console.warn('Could not set default email week:', err);
+  }
+}
+
+// ── "The board is open" announcement ──────────────────────────────────────
+// The other generator emails results after a week ends. This one goes out at
+// the start of a week, when the slate has just been imported and nobody has
+// picked yet, so it reads from the games rather than from the scores.
+async function generatePicksLiveEmail() {
+  const week = parseInt(document.getElementById('emailWeek').value);
+
+  const allGames = await DLC_DB.loadGames();
+  const allPicks = await DLC_DB.loadAllPlayerPicks();
+  const weekGames = (allGames || []).filter(g => g && g.week === week);
+
+  if (!weekGames.length) {
+    alert(`No games loaded for Week ${week}. Import the slate first, or check the week number.`);
+    return;
+  }
+
+  const nfl = weekGames.filter(g => g.league === 'nfl').length;
+  const cfb = weekGames.length - nfl;
+
+  const kickoffs = weekGames
+    .map(g => new Date(g.gameTime))
+    .filter(d => !isNaN(d))
+    .sort((a, b) => a - b);
+
+  const fmt = (d) => d.toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  }) + ' PT';
+
+  const firstKick = kickoffs.length ? fmt(kickoffs[0]) : '';
+
+  // Standings so far, so the note carries a little needle along with the news.
+  // Rank by points rather than by list position: slice(0, 3) would hand bronze
+  // to whichever of two tied players happened to sort first, and the family
+  // will absolutely notice if the site and the email disagree about third.
+  const standings = calculateStandings(allPicks, allGames) || [];
+  const scored = standings.filter(s => s.totalPoints > 0);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  const medalRows = scored.map(s => {
+    const rank = 1 + scored.filter(o => o.totalPoints > s.totalPoints).length;
+    if (rank > 3) return '';
+    return `
+        <tr>
+          <td style="padding:8px 0; color:#fff; font-size:15px;">${medals[rank - 1]} ${s.player}</td>
+          <td style="padding:8px 0; color:#f5c518; font-size:15px; font-weight:700; text-align:right;">${s.totalPoints} pts</td>
+        </tr>`;
+  }).join('');
+
+  const standingsBlock = scored.length ? `
+    <h2 style="color:#f5c518; margin:30px 0 14px 0; font-size:18px;">📊 Where We Stand</h2>
+    <table style="width:100%; border-collapse:collapse;">${medalRows}</table>
+    <p style="margin:10px 0 0 0; color:#999; font-size:13px;">Season points. Everyone else is still very much in it.</p>
+  ` : '';
+
+  const emailHTML = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #000;">
+  <div style="background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+    <h1 style="margin: 0; font-size: 32px; color: #000;">🏈 Dumb Luck Cup</h1>
+    <p style="margin: 10px 0 0 0; font-size: 18px; color: rgba(0,0,0,0.7);">Week ${week} — The Board Is Open</p>
+  </div>
+
+  <div style="padding: 30px; background: #000;">
+    <p style="margin: 0 0 18px 0; color: #eee; font-size: 16px; line-height: 1.6;">
+      The Week ${week} slate is loaded and the board is open for business.
+      There are <strong style="color:#f5c518;">${weekGames.length} games</strong> waiting on you
+      — ${nfl} in the NFL and ${cfb} in college — and every one of them has a spread attached.
+    </p>
+
+    <p style="margin: 0 0 24px 0; color: #eee; font-size: 16px; line-height: 1.6;">
+      Pick as many or as few as you like. Each game locks at its own kickoff,
+      so a pick you have not made by then is a pick you do not get.
+      ${firstKick ? `First one off the board is <strong style="color:#f5c518;">${firstKick}</strong>.` : ''}
+    </p>
+
+    <div style="text-align:center; margin: 28px 0;">
+      <a href="https://www.dumbluckcup.com"
+         style="display:inline-block; background:#f5c518; color:#000; text-decoration:none; font-weight:800; font-size:17px; padding:16px 38px; border-radius:8px;">
+        Make Your Picks →
+      </a>
+    </div>
+
+    ${standingsBlock}
+
+    <div style="margin-top: 30px; padding: 20px; background: #111; border-radius: 8px;">
+      <p style="margin: 0; color: #ccc; font-size: 14px; text-align: center; line-height:1.6;">
+        Good luck. You will need it — that is rather the point.<br>
+        <a href="https://www.dumbluckcup.com" style="color: #667eea; text-decoration: none; font-weight: 600;">
+          dumbluckcup.com
+        </a>
+      </p>
+    </div>
+  </div>
+
+  <div style="padding: 20px; background: #000; text-align: center; border-radius: 0 0 12px 12px; border-top: 1px solid #333;">
+    <p style="margin: 0; color: #999; font-size: 12px;">
+      Dumb Luck Cup • Est. 2013 • 13 Seasons of Glory
+    </p>
+  </div>
+</div>
+  `;
+
+  document.getElementById('emailContent').innerHTML = emailHTML;
+  document.getElementById('emailPreview').style.display = 'block';
 }
 
 function copyPlainText() {
