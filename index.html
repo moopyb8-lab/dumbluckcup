@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dumb Luck Cup</title>
+<meta name="description" content="The Dumb Luck Cup — a family pick'em competition. Est. 2013. Still no evidence of skill.">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green:  #00c48c;
+    --red:    #ff4d4d;
+    --yellow: #f5c518;
+    --dark:   #0d0f14;
+    --card:   #171a22;
+    --border: #252836;
+    --text:   #e8eaf0;
+    --muted:  #6b7280;
+    --indigo: #667eea;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  /* ── Hero ──────────────────────────────────────────────── */
+
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(48px, 12vh, 110px) 20px clamp(40px, 8vh, 72px);
+    text-align: center;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -10%, rgba(245,197,24,0.16), transparent 60%),
+      var(--dark);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* An enormous football sitting behind the wordmark, barely there. */
+  .hero::before {
+    content: '🏈';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-18deg);
+    font-size: clamp(260px, 46vw, 460px);
+    opacity: 0.045;
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  .hero-inner { position: relative; }
+
+  .est {
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(56px, 15vw, 132px);
+    line-height: 0.88;
+    margin: 0;
+    letter-spacing: 2px;
+    background: linear-gradient(180deg, #ffe89a 0%, var(--yellow) 55%, #c9a015 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 60px rgba(245,197,24,0.18);
+  }
+
+  .tagline {
+    font-size: clamp(15px, 2.4vw, 19px);
+    font-style: italic;
+    color: #b9bdc9;
+    margin: 20px auto 0;
+    max-width: 30ch;
+    line-height: 1.5;
+    min-height: 2.8em;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 32px;
+  }
+
+  .cta {
+    display: inline-block;
+    padding: 15px 34px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 16px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .cta:hover { transform: translateY(-2px); }
+
+  .cta-primary {
+    background: linear-gradient(135deg, var(--yellow), #d4a017);
+    color: #000;
+    box-shadow: 0 6px 24px rgba(245,197,24,0.28);
+  }
+
+  .cta-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .cta-secondary:hover { border-color: var(--muted); }
+
+  /* ── Dashboard ─────────────────────────────────────────── */
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 56px; }
+
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 40px 0 14px;
+    text-align: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .card-big {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 44px;
+    line-height: 1.05;
+    color: var(--yellow);
+    margin-top: 6px;
+  }
+
+  .card-note { font-size: 13px; color: #9aa0ad; margin-top: 6px; line-height: 1.5; }
+
+  /* Season podium */
+  .podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pod {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 10px;
+    text-align: center;
+  }
+  .pod.first { border-color: rgba(245,197,24,0.45); }
+  .pod-medal { font-size: 30px; display: block; }
+  .pod.first .pod-medal { font-size: 38px; }
+  .pod-name { font-weight: 700; font-size: 14px; margin-top: 6px; word-break: break-word; }
+  .pod-pts { font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: var(--yellow); }
+  .pod-unit { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+
+  /* Nav tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .tile:hover { border-color: var(--indigo); transform: translateY(-2px); }
+  .tile-emoji { font-size: 26px; display: block; margin-bottom: 8px; }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 30px 16px calc(30px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    line-height: 1.8;
+  }
+
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="est" id="est">Est. 2013</div>
+    <h1>Dumb Luck<br>Cup</h1>
+    <p class="tagline" id="tagline">&nbsp;</p>
+    <div class="cta-row">
+      <a class="cta cta-primary" href="/picks">Make Your Picks</a>
+      <a class="cta cta-secondary" href="/dlc-leaderboard-firebase-FINAL.html">See the Damage</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="section-label" id="weekLabel">This Week</div>
+  <div class="grid" id="statusGrid">
+    <div class="card"><div class="loading">Loading…</div></div>
+  </div>
+
+  <div class="section-label">🏆 Overall Standings</div>
+  <div class="podium" id="podium">
+    <div class="pod"><div class="loading">…</div></div>
+    <div class="pod"><div class="loading">…</div></div>
+    <div class="pod"><div class="loading">…</div></div>
+  </div>
+
+  <div class="section-label">Everything Else</div>
+  <div class="tiles">
+    <a class="tile" href="/picks"><span class="tile-emoji">🏈</span>Make Picks</a>
+    <a class="tile" href="/dlc-leaderboard-firebase-FINAL.html"><span class="tile-emoji">📊</span>Leaderboard</a>
+    <a class="tile" href="/dlc-honor-roll.html"><span class="tile-emoji">🏆</span>Honor Roll</a>
+    <a class="tile" href="/dlc-rules.html"><span class="tile-emoji">📖</span>Rules &amp; FAQ</a>
+  </div>
+
+</main>
+
+<footer>
+  Dumb Luck Cup · Est. 2013<br>
+  Cover the spread = 2 pts · Push = 1 pt · Wrong = the usual
+</footer>
+
+<script>
+  const DB = 'https://dumb-luck-cup-default-rtdb.firebaseio.com';
+
+  const PLAYER_AVATARS = {
+    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
+    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
+    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
+  };
+
+  // One gets picked at random per visit. The joke is the game's own premise:
+  // the spread does the work, everyone still thinks they're good at this.
+  const TAGLINES = [
+    'Thirteen seasons in, still no evidence of skill.',
+    'Everyone is an expert until about one o’clock on Sunday.',
+    'The spread is fair. Your opinions are not.',
+    'Somebody has to win it. It is rarely the person who deserves it.',
+    'A competition of deep football knowledge, decided entirely by luck.',
+    'If any of us knew what we were doing, it would have a different name.',
+    'Confidence is not a strategy, but it is what most of you have brought.',
+    'Glory in this game is famously short-lived.'
+  ];
+  document.getElementById('tagline').textContent =
+    TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // Same normalisation the picks page does: ESPN's own keys are 'nfl' and
+  // 'cfb', and a game stored with the raw key would otherwise be counted
+  // as neither league.
+  const league = (l) => {
+    const k = String(l || '').trim().toLowerCase();
+    if (k === 'nfl') return 'NFL';
+    if (k === 'cfb' || k === 'fbs') return 'FBS';
+    return l;
+  };
+
+  const isScore  = (v) => v !== null && v !== undefined && !Number.isNaN(Number(v));
+  const isSpread = (v) => v !== null && v !== undefined && !Number.isNaN(Number(v));
+
+  function countdown(ms) {
+    if (ms <= 0) return 'under way';
+    const mins = Math.floor(ms / 60000);
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    const m = mins % 60;
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+
+  function card(label, big, note) {
+    return `<div class="card">
+      <div class="card-label">${esc(label)}</div>
+      <div class="card-big">${big}</div>
+      <div class="card-note">${note}</div>
+    </div>`;
+  }
+
+  async function load() {
+    let games = [], picks = {};
+    try {
+      const [g, p] = await Promise.all([
+        fetch(`${DB}/games.json`).then(r => r.json()),
+        fetch(`${DB}/picks.json`).then(r => r.json())
+      ]);
+      games = (Array.isArray(g) ? g : Object.values(g || {})).filter(Boolean);
+      picks = p || {};
+    } catch (e) {
+      document.getElementById('statusGrid').innerHTML =
+        '<div class="card"><div class="card-note">Could not reach the scoreboard. The games are still happening, we just cannot see them from here.</div></div>';
+      return;
+    }
+
+    games = games.map(x => ({ ...x, league: league(x.league) }));
+
+    const weeks = games.map(x => x.week).filter(Number.isFinite);
+    const week = weeks.length ? Math.max(...weeks) : null;
+    const weekGames = week === null ? [] : games.filter(x => x.week === week);
+
+    document.getElementById('weekLabel').textContent =
+      week === null ? 'This Week' : `Week ${week}`;
+    const season = weekGames.find(x => Number.isFinite(x.season));
+    if (season) document.getElementById('est').textContent = `Est. 2013 · ${season.season} Season`;
+
+    // How many of the roster have picked anything in this week's slate.
+    const weekIds = new Set(weekGames.map(x => String(x.id)));
+    const roster = Object.keys(PLAYER_AVATARS);
+    const pickedCount = roster.filter(name =>
+      Object.keys(picks[name] || {}).some(id => weekIds.has(String(id)))).length;
+
+    // Next kickoff that has not happened yet.
+    const now = Date.now();
+    const upcoming = weekGames
+      .map(x => new Date(x.gameTime).getTime())
+      .filter(t => !isNaN(t) && t > now)
+      .sort((a, b) => a - b);
+
+    const nfl = weekGames.filter(x => x.league === 'NFL').length;
+    const cfb = weekGames.length - nfl;
+
+    const cards = [];
+
+    cards.push(card('Games on the board',
+      weekGames.length || '—',
+      `${nfl} in the NFL, ${cfb} in college. Pick as many or as few as you like.`));
+
+    cards.push(card('Next kickoff',
+      upcoming.length ? esc(countdown(upcoming[0] - now)) : 'All done',
+      upcoming.length
+        ? `Each game locks at its own kickoff, so a pick you have not made by then is a pick you do not get.`
+        : `Every game on this week's slate has started. Nothing left to do but watch.`));
+
+    const me = localStorage.getItem('dlc_current_player');
+    if (me && PLAYER_AVATARS[me]) {
+      const mine = Object.keys(picks[me] || {}).filter(id => weekIds.has(String(id))).length;
+      cards.push(card(`${PLAYER_AVATARS[me]} ${me} — your week`,
+        mine,
+        mine === 0
+          ? 'Not a single pick yet. Bold, given the company.'
+          : `${mine} pick${mine === 1 ? '' : 's'} in. ${pickedCount} of ${roster.length} players have made a start.`));
+    } else {
+      cards.push(card('Who has picked',
+        `${pickedCount} / ${roster.length}`,
+        pickedCount === roster.length
+          ? 'Everybody is in. No excuses available this week.'
+          : 'The rest are presumably still doing their research.'));
+    }
+
+    document.getElementById('statusGrid').innerHTML = cards.join('');
+
+    // ── Season standings ───────────────────────────────────
+    const scored = games.filter(x => isScore(x.homeScore) && isSpread(x.finalSpread));
+    const byId = new Map(scored.map(x => [String(x.id), x]));
+
+    const standings = roster.map(player => {
+      let pts = 0;
+      for (const [gameId, pick] of Object.entries(picks[player] || {})) {
+        const g = byId.get(String(gameId));
+        if (!g || !pick) continue;
+        if (g.spreadResult === 'push') { pts += 1; continue; }
+        if (g.spreadResult && g.spreadResult === pick.team) { pts += 2; continue; }
+        // Fall back to computing it, for games scored before spreadResult
+        // was being written.
+        const margin = Number(g.homeScore) - Number(g.awayScore);
+        const line = Number(g.finalSpread);
+        const adj = margin + line;
+        if (adj === 0) { pts += 1; continue; }
+        const covering = adj > 0 ? g.homeTeam : g.awayTeam;
+        if (pick.team === covering) pts += 2;
+      }
+      return { player, pts };
+    }).filter(s => s.pts > 0).sort((a, b) => b.pts - a.pts);
+
+    const medals = ['🥇', '🥈', '🥉'];
+    const top = [];
+    for (const s of standings) {
+      const rank = 1 + standings.filter(o => o.pts > s.pts).length;
+      if (rank > 3) continue;
+      top.push({ ...s, medal: medals[rank - 1], first: rank === 1 });
+    }
+
+    document.getElementById('podium').innerHTML = top.length
+      ? top.slice(0, 4).map(s => `
+          <div class="pod ${s.first ? 'first' : ''}">
+            <span class="pod-medal">${s.medal}</span>
+            <div class="pod-name">${PLAYER_AVATARS[s.player] || '🏈'} ${esc(s.player)}</div>
+            <div class="pod-pts">${s.pts}</div>
+            <div class="pod-unit">Season Points</div>
+          </div>`).join('')
+      : `<div class="pod" style="grid-column:1/-1"><div class="card-note">
+           Nothing scored yet this season. Everybody is joint first, which is
+           the best any of us will feel all year.</div></div>`;
+  }
+
+  load();
+</script>
+
+</body>
+</html>
