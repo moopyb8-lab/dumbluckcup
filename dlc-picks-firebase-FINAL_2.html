@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Dumb Luck Cup — Make Your Picks</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green:   #00c48c;
+      --red:     #ff4d4d;
+      --yellow:  #f5c518;
+      --dark:    #0d0f14;
+      --card:    #171a22;
+      --border:  #252836;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --nfl:     #3b82f6;
+      --fbs:     #f97316;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 120px;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px;
+      min-height: 232px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    header::before {
+      content: '🏈';
+      position: absolute;
+      font-size: 200px;
+      opacity: 0.1;
+      top: -30px;
+      right: -30px;
+      transform: rotate(-15deg);
+      pointer-events: none;
+      animation: headerBallFloat 5s ease-in-out infinite;
+    }
+
+    @keyframes headerBallFloat {
+      0%, 100% { transform: rotate(-15deg) translateY(0); }
+      50%      { transform: rotate(-8deg) translateY(-8px); }
+    }
+
+    .header-icon {
+      font-size: 64px;
+      height: 64px;
+      line-height: 64px;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 4px 20px rgba(0,0,0,0.3));
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      animation: headerBallPulse 2.8s ease-in-out infinite;
+    }
+
+    @keyframes headerBallPulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.08); }
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: 2px;
+      color: #000;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-subtitle {
+      font-size: 16px;
+      line-height: 1.2;
+      color: rgba(0,0,0,0.7);
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 10px;
+    }
+
+    .player-name-corner {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-size: 13px;
+      color: rgba(0,0,0,0.6);
+      z-index: 2;
+    }
+
+    @media (max-width: 420px) {
+      .player-name-corner { font-size: 11px; top: 12px; right: 12px; }
+    }
+
+    .player-name-corner span {
+      color: #000;
+      font-weight: 600;
+    }
+
+    /* Pick counter + submit, centered under the hero */
+    .pick-counter {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .counter-pill {
+      background: rgba(0,0,0,0.15);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: all 0.3s;
+      color: #000;
+      position: relative;
+      z-index: 1;
+    }
+
+    .counter-pill.complete {
+      background: rgba(0,0,0,0.2);
+      color: #000;
+      animation: counterComplete 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes counterComplete {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+
+    .counter-pill.over {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .submit-btn {
+      background: #000;
+      color: var(--yellow);
+      border: none;
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .submit-btn.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .submit-btn.active:hover {
+      transform: scale(1.04);
+      box-shadow: 0 4px 20px rgba(245,197,24,0.4);
+    }
+
+    /* One line under the counter that answers "when do these lock?" —
+       the question the counter alone never answered. */
+    .lock-line {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(0,0,0,0.6);
+      margin-top: 8px;
+      min-height: 15px;
+    }
+    .lock-line.soon { color: #7a1f1f; }
+
+    /* Save failed: the pill goes red and says so. Before this, a failed
+       Firebase write fell back to localStorage silently and the player
+       had no way to know their picks never left the phone. */
+    .counter-pill.unsaved {
+      background: var(--red);
+      color: #fff;
+    }
+
+    /* ── Filter bar ──────────────────────────────── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 20px;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-btn {
+      flex-shrink: 0;
+      background: var(--border);
+      border: 1px solid transparent;
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .filter-btn.active {
+      background: transparent;
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .filter-btn.nfl-filter.active { border-color: var(--nfl); color: var(--nfl); }
+    .filter-btn.fbs-filter.active { border-color: var(--fbs); color: var(--fbs); }
+    .filter-btn.conf-filter.active { border-color: var(--fbs); color: var(--fbs); }
+
+    .filter-btn.conf-filter {
+      font-size: 12px;
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .filter-divider {
+      flex-shrink: 0;
+      width: 1px;
+      align-self: stretch;
+      background: var(--border);
+      margin: 2px 4px;
+    }
+
+    /* On phone, the filter bar packs ~6 main filters plus every FBS
+       conference chip (Big Ten, SEC, etc.) into one row - as a single
+       horizontally-scrolling strip that's fine on desktop, "My Picks" and
+       "Unpicked" end up scrolled off past ten-plus conference chips, and
+       it reads as a cramped, cut-off mess on a narrow screen. Wrapping
+       onto as many rows as needed keeps every filter visible at a glance
+       instead of hidden behind a scroll; the vertical dividers only made
+       sense inline in one row, so they're dropped once it wraps.
+       Desktop (600px+) keeps the original single-row scroller untouched. */
+    @media (max-width: 599px) {
+      .filter-bar {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        padding: 10px 16px;
+      }
+
+      .filter-divider { display: none; }
+    }
+
+    /* ── Search ──────────────────────────────────── */
+    .search-wrap {
+      padding: 12px 20px;
+      background: var(--dark);
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 38px 10px 38px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--yellow); }
+    .search-input::placeholder { color: var(--muted); }
+
+    .search-icon {
+      position: absolute;
+      left: 34px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    .search-clear {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      right: 28px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      background: var(--border);
+      color: var(--muted);
+      border: none;
+      border-radius: 50%;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.15s;
+    }
+
+    .search-clear.visible { display: flex; }
+
+    .search-clear:hover {
+      background: var(--red);
+      color: #fff;
+    }
+
+    /* ── Day group header ────────────────────────── */
+    .day-group { margin-bottom: 4px; }
+
+    .day-header {
+      padding: 10px 20px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Game card ───────────────────────────────── */
+    .game-card {
+      margin: 0 12px 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    @media (hover: hover) {
+      .game-card:not(.locked):hover {
+        transform: translateY(-2px);
+        border-color: rgba(245,197,24,0.35);
+        box-shadow: 0 10px 26px rgba(0,0,0,0.3);
+      }
+    }
+
+    .game-card:active { transform: scale(0.98); }
+
+    .game-card.picked {
+      border-color: var(--green);
+      background: #0d1f1a;
+      box-shadow: 0 4px 20px rgba(0,196,140,0.15);
+    }
+
+    .game-card.locked {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .game-card.locked .game-inner { pointer-events: none; }
+
+    .game-inner {
+      padding: 14px 16px;
+    }
+
+    /* Top row: league badge + time + lock icon */
+    .game-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .league-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .nfl-dot { background: var(--nfl); }
+    .fbs-dot { background: var(--fbs); }
+
+    .game-time {
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .lock-badge {
+      font-size: 11px;
+      color: var(--red);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Teams + spread row */
+    .teams-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .team {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .team.away { text-align: left; }
+    .team.home { text-align: right; }
+
+    .team-name {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .rank-badge {
+      display: inline-block;
+      background: var(--yellow);
+      color: #1a1500;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-right: 5px;
+      vertical-align: middle;
+      box-shadow: 0 0 8px rgba(245,197,24,0.5);
+    }
+
+    .team-abbr {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .vs-spread {
+      text-align: center;
+    }
+
+    .vs-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Pick buttons */
+    .pick-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pick-btn {
+      background: var(--border);
+      border: 1.5px solid transparent;
+      border-radius: 10px;
+      padding: 9px 8px;
+      cursor: pointer;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: center;
+    }
+
+    .pick-btn:hover { border-color: var(--muted); transform: translateY(-1px); }
+    .pick-btn:active { transform: scale(0.96); }
+
+    .pick-btn.selected-fav {
+      background: #0d2010;
+      border-color: var(--green);
+      box-shadow: 0 3px 14px rgba(0,196,140,0.25);
+      animation: pickPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .pick-btn.selected-dog {
+      background: #0d2010;
+      border-color: var(--green);
+      box-shadow: 0 3px 14px rgba(0,196,140,0.25);
+      animation: pickPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes pickPop {
+      0%   { transform: scale(0.92); }
+      60%  { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+
+    .pick-btn-team {
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pick-btn-spread {
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .fav-spread { color: var(--red); }
+    .dog-spread { color: var(--green); }
+
+    .pick-btn-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    /* Spread updated indicator */
+    .spread-updated {
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* ── My Picks tray (bottom) ──────────────────── */
+    .picks-tray {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px 20px;
+      z-index: 200;
+    }
+
+    .tray-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+
+    .tray-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tray-count {
+      background: var(--yellow);
+      color: #000;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 12px;
+    }
+
+    .tray-chevron {
+      color: var(--muted);
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+
+    .tray-chevron.open { transform: rotate(180deg); }
+
+    .tray-content {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .tray-content.open { display: block; }
+
+    .tray-picks-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .tray-pick {
+      background: var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+      animation: trayPickIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes trayPickIn {
+      0%   { opacity: 0; transform: scale(0.9) translateY(4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .tray-pick-team {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .tray-pick-spread {
+      font-size: 11px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .tray-remove {
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      flex-shrink: 0;
+      padding: 0 2px;
+      transition: all 0.15s;
+      display: inline-block;
+    }
+
+    .tray-remove:hover { color: var(--red); transform: scale(1.25); }
+
+    /* ── Empty state ─────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .emoji { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Submission screen ───────────────────────── */
+    .submission-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--dark);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .submission-overlay.active { display: flex; }
+
+    .submission-overlay .emoji {
+      font-size: 64px;
+      margin-bottom: 24px;
+      display: inline-block;
+      animation: submitCelebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes submitCelebrate {
+      0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+      60%  { transform: scale(1.2) rotate(8deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    .submission-overlay h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px;
+      letter-spacing: 1px;
+      color: var(--yellow);
+      margin-bottom: 12px;
+    }
+
+    .submission-overlay p {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 320px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .submission-picks-list {
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 28px;
+    }
+
+    .sub-pick-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--card);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .sub-pick-team { font-weight: 700; }
+    .sub-pick-spread { color: var(--muted); text-align: right; }
+
+    .back-btn {
+      background: var(--border);
+      color: var(--text);
+      border: none;
+      border-radius: 20px;
+      padding: 12px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Responsive ──────────────────────────────── */
+    @media (min-width: 600px) {
+      .games-list {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .game-card { margin: 0 0 10px; }
+      .picks-tray { max-width: 600px; left: 50%; transform: translateX(-50%); }
+    }
+  
+    /* ── Navigation ─────────────────────────────── */
+    nav.page-nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    nav.page-nav::-webkit-scrollbar { display: none; }
+
+    .nav-btn {
+      background: var(--border);
+      border: 1px solid transparent;
+      color: #ffffff;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-block;
+    }
+
+    .nav-btn:hover {
+      background: rgba(245,197,24,0.12);
+      border-color: rgba(245,197,24,0.4);
+      color: var(--yellow);
+      transform: translateY(-1px);
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="fbs-conferences.js"></script>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────── -->
+<header>
+  <div class="player-name-corner">Picking as <span id="playerNameDisplay">—</span> <a href="#" onclick="switchPlayer(); return false;" style="color:rgba(0,0,0,0.7); text-decoration:underline; margin-left:6px; font-weight:600;">Not you?</a></div>
+  <div class="header-icon">🏈</div>
+  <h1 class="logo">DUMB LUCK CUP</h1>
+  <div class="header-subtitle" id="headerSubtitle">Week 1 · 2026 Season</div>
+  <div class="pick-counter">
+    <div class="counter-pill" id="counterPill">0 / 10 picks</div>
+    <button class="submit-btn" id="submitBtn" onclick="submitPicks()">Review Picks</button>
+  </div>
+  <div class="lock-line" id="lockLine"></div>
+</header>
+<nav class="page-nav">
+  <a href="/" class="nav-btn">🏈 Make Picks</a>
+  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
+  <a href="/dlc-rules.html" class="nav-btn">📖 Rules & FAQ</a>
+  <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn">⚙️ Admin</a>
+</nav>
+
+
+<!-- ── Filter bar ──────────────────────────────────── -->
+<div class="filter-bar" id="filterBar">
+  <button class="filter-btn active" data-filter="all" onclick="setFilter(this, 'all')">All Games</button>
+  <button class="filter-btn nfl-filter" data-filter="NFL" onclick="setFilter(this, 'NFL')">🏈 NFL</button>
+  <div class="filter-divider"></div>
+  <button class="filter-btn fbs-filter" data-filter="FBS" onclick="setFilter(this, 'FBS')">🎓 FBS</button>
+  <button class="filter-btn conf-filter" data-filter="top25" onclick="setFilter(this, 'top25')">🏆 Top 25</button>
+  <span id="confChipsAnchor"></span>
+  <div class="filter-divider"></div>
+  <button class="filter-btn" data-filter="my-picks" onclick="setFilter(this, 'my-picks')">⭐ My Picks</button>
+  <button class="filter-btn" data-filter="unpicked" onclick="setFilter(this, 'unpicked')">◯ Unpicked</button>
+</div>
+
+<!-- ── Search ──────────────────────────────────────── -->
+<div class="search-wrap">
+  <span class="search-icon">🔍</span>
+  <input
+    class="search-input"
+    id="searchInput"
+    type="text"
+    placeholder="Search by team name or abbreviation..."
+    oninput="onSearch()"
+    autocomplete="off"
+    autocorrect="off"
+    spellcheck="false"
+  >
+  <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Clear search">✕</button>
+</div>
+<div class="search-result-count" id="searchResultCount"></div>
+
+<!-- ── Game list ───────────────────────────────────── -->
+<div class="games-list" id="gamesList"></div>
+
+<!-- ── My Picks tray ──────────────────────────────── -->
+<div class="picks-tray">
+  <div class="tray-toggle" onclick="toggleTray()">
+    <div class="tray-title">
+      My Picks
+      <span class="tray-count" id="trayCount">0</span>
+    </div>
+    <div class="tray-chevron" id="trayChevron">▲</div>
+  </div>
+  <div class="tray-content" id="trayContent">
+    <div class="tray-picks-grid" id="trayPicksGrid"></div>
+  </div>
+</div>
+
+<!-- ── Submission overlay ─────────────────────────── -->
+<div class="submission-overlay" id="submissionOverlay">
+  <div class="emoji">🏈</div>
+  <h2 id="submissionTitle">Your picks are saved</h2>
+  <p id="submissionSub">Each pick locks at its own kickoff and can be changed until then.</p>
+  <div class="submission-picks-list" id="submissionPicksList"></div>
+  <button class="back-btn" onclick="closeSubmission()">← Back to Games</button>
+</div>
+
+<!-- ── Player name modal ──────────────────────────── -->
+<div id="nameModal" style="
+  display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.85);
+  z-index:999; align-items:center; justify-content:center; padding:20px;
+">
+  <div style="
+    background:var(--card); border:1px solid var(--border);
+    border-radius:18px; padding:32px 28px; width:100%; max-width:360px;
+    text-align:center;
+  ">
+    <div style="font-size:48px; margin-bottom:16px;">🏈</div>
+    <h2 style="font-family:'Bebas Neue',sans-serif; font-size:32px; color:var(--yellow); margin-bottom:8px;">
+      Dumb Luck Cup
+    </h2>
+    <div style="display:flex; gap:8px; justify-content:center; margin-bottom:16px; flex-wrap:wrap;">
+      <a href="/dlc-leaderboard-firebase-FINAL.html" style="font-size:13px; color:#e8eaf0; text-decoration:none; padding:8px 12px; background:rgba(102,126,234,0.2); border:1px solid rgba(102,126,234,0.4); border-radius:8px; font-weight:600;">📊 Leaderboard</a>
+      <a href="/dlc-honor-roll.html" style="font-size:13px; color:#e8eaf0; text-decoration:none; padding:8px 12px; background:rgba(102,126,234,0.2); border:1px solid rgba(102,126,234,0.4); border-radius:8px; font-weight:600;">🏆 Honor Roll</a>
+      <a href="/dlc-rules.html" style="font-size:13px; color:#e8eaf0; text-decoration:none; padding:8px 12px; background:rgba(102,126,234,0.2); border:1px solid rgba(102,126,234,0.4); border-radius:8px; font-weight:600;">📖 Rules</a>
+    </div>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:28px; line-height:1.5;">
+      <span id="modalWeekLabel">2026 Season</span><br>Pick 10 games. Beat the spread. Be the goat.
+    </p>
+    <select id="playerSelect" style="
+      width:100%; background:var(--border); border:1px solid var(--border);
+      border-radius:10px; padding:12px 14px; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:15px; margin-bottom:16px;
+      outline:none; cursor:pointer;
+    ">
+      <option value="">Select your name...</option>
+      <option>Da Commish</option>
+      <option>Q</option>
+      <option>O</option>
+      <option>Milo</option>
+      <option>Owls</option>
+      <option>Honey</option>
+      <option>Pops</option>
+      <option>ML</option>
+      <option>Cobe</option>
+      <option>Coin</option>
+      <option>Abby</option>
+      <option>Jason</option>
+    </select>
+    <button onclick="startPicking()" style="
+      width:100%; background:var(--yellow); color:#000; border:none;
+      border-radius:10px; padding:14px; font-family:'DM Sans',sans-serif;
+      font-size:16px; font-weight:700; cursor:pointer;
+    ">Let's Go →</button>
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────
+  let games = [];
+  let picks = {};       // { gameId: { team, spread, side } }
+  let currentFilter = 'all';
+  let currentPlayer = '';
+  let trayOpen = false;
+
+  const MAX_PICKS = 10;
+
+  // ── Boot ─────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    renderConferenceChips();
+
+    // Resume the last-picked player on this device instead of asking
+    // again on every page load (e.g. going to the leaderboard and back).
+    const savedPlayer = localStorage.getItem('dlc_current_player');
+    if (savedPlayer) {
+      currentPlayer = savedPlayer;
+      document.getElementById('playerNameDisplay').innerHTML = getAvatar(savedPlayer, 24) + savedPlayer;
+      document.getElementById('nameModal').style.display = 'none';
+    }
+
+    loadGames();
+  });
+
+  function switchPlayer() {
+    localStorage.removeItem('dlc_current_player');
+    currentPlayer = '';
+    picks = {};
+    document.getElementById('playerNameDisplay').textContent = '—';
+    document.getElementById('playerSelect').value = '';
+    document.getElementById('nameModal').style.display = 'flex';
+  }
+
+  function renderConferenceChips() {
+    const anchor = document.getElementById('confChipsAnchor');
+    if (!anchor || typeof FBS_CONFERENCES === 'undefined') return;
+    anchor.innerHTML = FBS_CONFERENCES.map(c =>
+      `<button class="filter-btn conf-filter" data-filter="conf:${c.key}" onclick="setFilter(this, 'conf:${c.key}')">${c.label}</button>`
+    ).join('');
+  }
+
+  async function loadGames() {
+    // Load from Firebase first
+    try {
+      games = await DLC_DB.loadGames();
+    } catch(e) {
+      console.warn('Firebase load failed, trying localStorage');
+    }
+    
+    // Fallback to localStorage
+    if (games.length === 0) {
+      const stored = localStorage.getItem('dlc_games');
+      if (stored) {
+        try { games = JSON.parse(stored); } catch(e) { games = []; }
+      }
+    }
+
+    if (games.length === 0) {
+      games = getFallbackGames();
+    }
+
+    // Show only the newest week that has been loaded.
+    //
+    // Every week's games live in the same Firebase `games` node, so until now
+    // importing next week's slate meant first clearing this one — and clearing
+    // means archiving, which is the step where a week's data can go missing if
+    // anything about the archive is unreadable later. Filtering here breaks
+    // that dependency: the commissioner can import Week N+1 alongside Week N,
+    // players immediately see only the new week, and nothing has to be deleted
+    // for that to happen. Archiving becomes optional tidying rather than a
+    // required part of the weekly cycle.
+    //
+    // Everything downstream — the counter, the lock line, the tray, the review
+    // sheet and getCurrentWeekPicks() — already scopes itself to whatever is in
+    // `games`, so filtering once here is enough.
+    const weeksLoaded = games.map(g => g.week).filter(w => Number.isFinite(w));
+    if (weeksLoaded.length > 0) {
+      const currentWeek = Math.max(...weeksLoaded);
+      games = games.filter(g => g.week === currentWeek);
+    }
+
+    // Load existing picks for this player
+    if (currentPlayer) {
+      try {
+        picks = await DLC_DB.loadPlayerPicks(currentPlayer);
+      } catch(e) {
+        const savedPicks = localStorage.getItem(`dlc_picks_${currentPlayer}`);
+        if (savedPicks) {
+          try { picks = JSON.parse(savedPicks); } catch(e) { picks = {}; }
+        }
+      }
+    }
+
+    renderGames();
+    updateCounter();
+    updateWeekLabel();
+  }
+
+  // The header used to say "Week 1" no matter what was loaded. Now it
+  // reads the week and season off the games themselves.
+  function updateWeekLabel() {
+    const weeks = games.map(g => g.week).filter(Number.isFinite);
+    const seasons = games.map(g => g.season).filter(Number.isFinite);
+    if (weeks.length === 0) return;
+    const week = Math.max(...weeks);
+    const season = seasons.length ? Math.max(...seasons) : new Date().getFullYear();
+    const label = `Week ${week} · ${season} Season`;
+    const h = document.getElementById('headerSubtitle');
+    const m = document.getElementById('modalWeekLabel');
+    if (h) h.textContent = label;
+    if (m) m.textContent = label;
+  }
+
+  async function startPicking() {
+    const sel = document.getElementById('playerSelect').value;
+    if (!sel) { alert('Please select your name first!'); return; }
+    currentPlayer = sel;
+    localStorage.setItem('dlc_current_player', sel);
+    document.getElementById('playerNameDisplay').innerHTML = getAvatar(sel, 24) + sel;
+
+    // Load existing picks
+    try {
+      picks = await DLC_DB.loadPlayerPicks(sel);
+    } catch(e) {
+      const saved = localStorage.getItem(`dlc_picks_${sel}`);
+      if (saved) {
+        try { picks = JSON.parse(saved); } catch(e) { picks = {}; }
+      }
+    }
+
+    document.getElementById('nameModal').style.display = 'none';
+    renderGames();
+    updateCounter();
+  }
+
+  // ── Filtering & search ───────────────────────────
+  function setFilter(btn, filter) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = filter;
+    renderGames();
+  }
+
+  function getFilteredGames() {
+    const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+    const filtered = games.filter(g => {
+      if (currentFilter === 'NFL' && g.league !== 'NFL') return false;
+      if (currentFilter === 'FBS' && g.league !== 'FBS') return false;
+      if (currentFilter === 'top25' && !g.homeRank && !g.awayRank) return false;
+      if (currentFilter.startsWith('conf:')) {
+        // FBS-only: several school names are prefixes of NFL team names
+        // (e.g. "Washington" / Washington Commanders, "Indiana" /
+        // Indianapolis Colts, "Kansas" / Kansas City Chiefs) and would
+        // false-match an NFL game otherwise.
+        if (g.league !== 'FBS') return false;
+        const confKey = currentFilter.slice(5);
+        const homeConf = typeof getConferenceForTeam === 'function' ? getConferenceForTeam(g.homeTeam) : null;
+        const awayConf = typeof getConferenceForTeam === 'function' ? getConferenceForTeam(g.awayTeam) : null;
+        if (homeConf !== confKey && awayConf !== confKey) return false;
+      }
+      if (currentFilter === 'my-picks' && !picks[g.id]) return false;
+      if (currentFilter === 'unpicked' && picks[g.id]) return false;
+      if (search) {
+        const searchable = [
+          g.homeTeam, g.awayTeam,
+          g.homeAbbr, g.awayAbbr,
+          // also match last word (e.g. "Chiefs", "Eagles")
+          g.homeTeam.split(' ').slice(-1)[0],
+          g.awayTeam.split(' ').slice(-1)[0],
+        ].map(s => s.toLowerCase());
+        if (!searchable.some(s => s.includes(search))) return false;
+      }
+      return true;
+    });
+
+    // Top 25 reads top-to-bottom by rank (#1 first, #25 last) rather than
+    // by kickoff time. A game with two ranked teams sorts by whichever
+    // team is ranked higher (lower number).
+    if (currentFilter === 'top25') {
+      const bestRank = g => Math.min(g.homeRank || 99, g.awayRank || 99);
+      filtered.sort((a, b) => bestRank(a) - bestRank(b));
+    }
+
+    return filtered;
+  }
+
+  // ── Render ───────────────────────────────────────
+  function renderGames() {
+    const list = document.getElementById('gamesList');
+    const filtered = getFilteredGames();
+    const search = document.getElementById('searchInput').value.trim();
+    const countEl = document.getElementById('searchResultCount');
+
+    // Update result count
+    if (search) {
+      countEl.textContent = filtered.length === 0
+        ? 'No games found'
+        : `${filtered.length} game${filtered.length !== 1 ? 's' : ''} found`;
+    } else {
+      countEl.textContent = '';
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="emoji">🏈</div>
+          <p>${search ? 'No games found for "' + search + '"' : 'No games found'}</p>
+        </div>`;
+      return;
+    }
+
+    // Group by day
+    const groups = {};
+    filtered.forEach(g => {
+      const day = getDayLabel(g.gameTime);
+      if (!groups[day]) groups[day] = [];
+      groups[day].push(g);
+    });
+
+    list.innerHTML = Object.entries(groups).map(([day, dayGames]) => `
+      <div class="day-group">
+        <div class="day-header">${day}</div>
+        ${dayGames.map(g => renderGameCard(g)).join('')}
+      </div>
+    `).join('');
+  }
+
+
+  function getTimeUntilKickoff(gameTime) {
+    const now = new Date();
+    const kickoff = new Date(gameTime);
+    const diff = kickoff - now;
+    
+    if (diff < 0) return null; // Game has started
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return 'Starting now!';
+    }
+  }
+
+  function renderGameCard(game) {
+    // Auto-lock games at kickoff time
+    const now = new Date();
+    const gameTime = new Date(game.gameTime);
+    const hasStarted = now >= gameTime;
+    
+    const isLocked = hasStarted || game.status === 'live' || game.status === 'final';
+    const myPick = picks[game.id];
+    const isPicked = !!myPick;
+
+    // A game with no line posted yet (currentSpread is null, or NaN from a
+    // blank admin entry) is still pickable - straight up, as a "PK" (pick
+    // 'em) game, same convention Coin's auto-picker already uses - it just
+    // can't show a real favorite/underdog split until a line is posted.
+    const hasSpread = typeof game.currentSpread === 'number' && !Number.isNaN(game.currentSpread);
+
+    // Determine favorite and underdog
+    // currentSpread is relative to HOME team (negative = home favored)
+    const homeFavored = hasSpread ? game.currentSpread <= 0 : true;
+    const spreadValue = hasSpread ? Math.abs(game.currentSpread) : 0;
+    const spreadText = hasSpread ? spreadValue : 'No Available Spread';
+
+    const pickedFav = myPick && myPick.side === 'favorite';
+    const pickedDog = myPick && myPick.side === 'underdog';
+
+    // Pick buttons are laid out to match the teams-row above (away on the
+    // left, home on the right) rather than always favorite-left/dog-right —
+    // otherwise the FAVORITE button can end up under the wrong team.
+    const awaySide = {
+      team: game.awayTeam, label: !hasSpread ? 'PICK' : (homeFavored ? 'UNDERDOG' : 'FAVORITE'),
+      spread: homeFavored ? `+${spreadValue}` : `-${spreadValue}`,
+      spreadLabel: hasSpread ? (homeFavored ? `+${spreadText}` : `-${spreadText}`) : spreadText,
+      side: homeFavored ? 'underdog' : 'favorite',
+      picked: homeFavored ? pickedDog : pickedFav,
+      spreadClass: homeFavored ? 'dog-spread' : 'fav-spread',
+      selectedClass: homeFavored ? 'selected-dog' : 'selected-fav'
+    };
+    const homeSide = {
+      team: game.homeTeam, label: !hasSpread ? 'PICK' : (homeFavored ? 'FAVORITE' : 'UNDERDOG'),
+      spread: homeFavored ? `-${spreadValue}` : `+${spreadValue}`,
+      spreadLabel: hasSpread ? (homeFavored ? `-${spreadText}` : `+${spreadText}`) : spreadText,
+      side: homeFavored ? 'favorite' : 'underdog',
+      picked: homeFavored ? pickedFav : pickedDog,
+      spreadClass: homeFavored ? 'fav-spread' : 'dog-spread',
+      selectedClass: homeFavored ? 'selected-fav' : 'selected-dog'
+    };
+
+    const updatedAgo = formatTimeSince(game.spreadLastUpdated);
+
+    return `
+      <div class="game-card ${isPicked ? 'picked' : ''} ${isLocked ? 'locked' : ''}"
+           id="card-${game.id}">
+        <div class="game-inner">
+
+          <div class="game-meta">
+            <div class="league-dot ${game.league === 'NFL' ? 'nfl-dot' : 'fbs-dot'}"></div>
+            <div class="game-time">${game.league} · ${formatGameTime(game.gameTime)}</div>
+            ${isLocked ? `<div class="lock-badge">🔒 Locked</div>` : ''}
+            ${isPicked && !isLocked ? `<div style="font-size:11px;color:var(--green);font-weight:600;">✓ Picked</div>` : ''}
+          </div>
+
+          <div class="teams-row">
+            <div class="team away">
+              <div class="team-name">${game.awayRank ? `<span class="rank-badge">#${game.awayRank}</span>` : ''}${game.awayTeam}</div>
+              <div class="team-abbr">${game.awayAbbr} · Away</div>
+            </div>
+            <div class="vs-spread">
+              <div class="vs-label">@</div>
+            </div>
+            <div class="team home">
+              <div class="team-name">${game.homeRank ? `<span class="rank-badge">#${game.homeRank}</span>` : ''}${game.homeTeam}</div>
+              <div class="team-abbr">${game.homeAbbr} · Home</div>
+            </div>
+          </div>
+
+          ${!isLocked ? `
+          <div class="pick-row">
+            <button
+              class="pick-btn ${awaySide.picked ? awaySide.selectedClass : ''}"
+              onclick="makePick('${game.id}', '${awaySide.team}', ${awaySide.spread}, '${awaySide.side}')"
+            >
+              <div class="pick-btn-spread ${awaySide.spreadClass}">${awaySide.spreadLabel}</div>
+              <div class="pick-btn-label">${awaySide.label}</div>
+            </button>
+            <button
+              class="pick-btn ${homeSide.picked ? homeSide.selectedClass : ''}"
+              onclick="makePick('${game.id}', '${homeSide.team}', ${homeSide.spread}, '${homeSide.side}')"
+            >
+              <div class="pick-btn-spread ${homeSide.spreadClass}">${homeSide.spreadLabel}</div>
+              <div class="pick-btn-label">${homeSide.label}</div>
+            </button>
+          </div>
+          <div class="spread-updated">${hasSpread ? `Spread updated ${updatedAgo}` : 'No available spread yet — picking straight up'}</div>
+          ` : `
+          <div style="margin-top:10px; padding:8px 12px; background:var(--border);
+               border-radius:8px; font-size:12px; color:var(--muted); text-align:center;">
+            ${myPick
+              ? `Your pick: <strong style="color:var(--text)">${myPick.team}</strong>
+                 <span style="color:${myPick.side==='favorite'?'var(--red)':'var(--green)'}">
+                 ${myPick.side==='favorite'?'-':'+'}${spreadValue}</span>
+                 · Locked at kickoff`
+              : `Game locked — no pick submitted`
+            }
+          </div>
+          `}
+
+        </div>
+      </div>`;
+  }
+
+
+  // ── Auto-lock timer ──────────────────────────────────────────────────────
+  function checkForGameLocks() {
+    const now = new Date();
+    let needsRefresh = false;
+    
+    games.forEach(game => {
+      const gameTime = new Date(game.gameTime);
+      const wasUnlocked = game.status !== 'live' && game.status !== 'final';
+      const hasStarted = now >= gameTime;
+      
+      if (wasUnlocked && hasStarted) {
+        needsRefresh = true;
+      }
+    });
+    
+    if (needsRefresh) {
+      console.log('🔒 Games have started - refreshing...');
+      renderGames();
+      updateCounter();
+    }
+  }
+  
+  // Check every 30 seconds for games that should lock
+  setInterval(checkForGameLocks, 30000);
+  // Keep the "locks in …" countdown honest without a full re-render.
+  setInterval(updateLockLine, 60000);
+
+  // ── Pick logic ───────────────────────────────────
+  function makePick(gameId, team, spread, side) {
+    if (!currentPlayer) return;
+    
+    // Check if game has started
+    const game = games.find(g => g.id === gameId);
+    if (game) {
+      const now = new Date();
+      const gameTime = new Date(game.gameTime);
+      const hasStarted = now >= gameTime || game.status === 'live' || game.status === 'final';
+      
+      if (hasStarted) {
+        alert('🔒 This game has already started. Picks are locked!');
+        return;
+      }
+    }
+
+    const pickCount = Object.keys(getCurrentWeekPicks()).length;
+    const alreadyPicked = picks[gameId];
+
+    // If clicking same pick again → remove it (toggle)
+    if (alreadyPicked && alreadyPicked.team === team) {
+      delete picks[gameId];
+      savePicks();
+      updateCounter();
+      renderGames();
+      renderTray();
+      return;
+    }
+
+    // If already have 10 picks and this is a NEW game → block
+    if (!alreadyPicked && pickCount >= MAX_PICKS) {
+      showToast(`You've already picked ${MAX_PICKS} games. Remove one first.`);
+      return;
+    }
+
+    // Save pick
+    picks[gameId] = {
+      team,
+      spread,
+      side,
+      pickedAt: new Date().toISOString(),
+      gameId
+    };
+
+    savePicks();
+    updateCounter();
+    renderGames();
+    renderTray();
+
+    // Auto open tray when first pick is made
+    if (Object.keys(getCurrentWeekPicks()).length === 1) openTray();
+  }
+
+  // Old picks referencing games from a past, already-cleared week can
+  // still be sitting in Firebase (picks accumulate per player and are
+  // never auto-deleted). Scoping every count/render/submit to only
+  // picks that match a currently-loaded game keeps a past week's picks
+  // from silently eating into this week's 10-pick limit.
+  function getCurrentWeekPicks() {
+    const currentIds = new Set(games.map(g => g.id));
+    const result = {};
+    for (const [gameId, pick] of Object.entries(picks)) {
+      if (currentIds.has(gameId)) result[gameId] = pick;
+    }
+    return result;
+  }
+
+  // Picks are written to Firebase on every tap — there is no separate
+  // "submit" step. These three track whether the last write actually
+  // landed, so the counter can say "saved" only when it is true.
+  let saveState = 'idle';   // 'idle' | 'saving' | 'saved' | 'failed'
+  let lastSavedAt = null;
+  let saveSeq = 0;
+
+  async function savePicks() {
+    if (!currentPlayer) return;
+    const seq = ++saveSeq;
+    saveState = 'saving';
+    updateCounter();
+    try {
+      await DLC_DB.savePlayerPicks(currentPlayer, picks);
+      if (seq !== saveSeq) return;          // a newer save superseded this one
+      saveState = 'saved';
+      lastSavedAt = new Date();
+    } catch(e) {
+      console.warn('Firebase save failed, using localStorage', e);
+      localStorage.setItem(`dlc_picks_${currentPlayer}`, JSON.stringify(picks));
+      if (seq !== saveSeq) return;
+      saveState = 'failed';
+    }
+    updateCounter();
+  }
+
+  // ── Counter ──────────────────────────────────────
+  function updateCounter() {
+    const count = Object.keys(getCurrentWeekPicks()).length;
+    const pill  = document.getElementById('counterPill');
+    const btn   = document.getElementById('submitBtn');
+    const trayCount = document.getElementById('trayCount');
+
+    let text, cls = 'counter-pill';
+    if (saveState === 'failed') {
+      text = `${count} / ${MAX_PICKS} — NOT saved, check your connection`;
+      cls += ' unsaved';
+    } else if (saveState === 'saving') {
+      text = `${count} / ${MAX_PICKS} · saving…`;
+    } else if (count === 0) {
+      text = `0 / ${MAX_PICKS} picks`;
+    } else if (count < MAX_PICKS) {
+      text = `${count} / ${MAX_PICKS} saved · ${MAX_PICKS - count} to go`;
+    } else if (count === MAX_PICKS) {
+      text = `${count} / ${MAX_PICKS} saved ✓`;
+      cls += ' complete';
+    } else {
+      text = `${count} / ${MAX_PICKS} — remove ${count - MAX_PICKS}`;
+      cls += ' over';
+    }
+    pill.textContent = text;
+    pill.className = cls;
+
+    // Review is available as soon as there is anything to review.
+    btn.className = 'submit-btn' + (count > 0 ? ' active' : '');
+    trayCount.textContent = count;
+    updateLockLine();
+  }
+
+  // "Next lock" — the first kickoff among this player's still-open picks,
+  // or among all open games if they have none yet.
+  function updateLockLine() {
+    const el = document.getElementById('lockLine');
+    if (!el || games.length === 0) return;
+    const now = new Date();
+    const isOpen = g => {
+      const t = new Date(g.gameTime);
+      return !Number.isNaN(t.getTime()) && now < t && g.status !== 'live' && g.status !== 'final';
+    };
+    const myIds = new Set(Object.keys(getCurrentWeekPicks()));
+    let pool = games.filter(g => isOpen(g) && myIds.has(g.id));
+    let mine = true;
+    if (pool.length === 0) { pool = games.filter(isOpen); mine = false; }
+    if (pool.length === 0) {
+      const anyGames = games.length > 0;
+      el.textContent = anyGames ? 'All games have kicked off — picks are locked' : '';
+      el.className = 'lock-line';
+      return;
+    }
+    pool.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
+    const first = new Date(pool[0].gameTime);
+    const ms = first - now;
+    const h = Math.floor(ms / 3600000), d = Math.floor(h / 24);
+    const rel = d >= 1 ? `${d}d ${h - d * 24}h` : h >= 1 ? `${h}h ${Math.floor((ms % 3600000) / 60000)}m` : `${Math.max(1, Math.floor(ms / 60000))}m`;
+    const when = first.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    el.textContent = (mine ? 'Your first pick locks ' : 'First kickoff ') + `${when} · in ${rel}`;
+    el.className = 'lock-line' + (ms < 3 * 3600000 ? ' soon' : '');
+  }
+
+  // ── Tray ─────────────────────────────────────────
+  function toggleTray() {
+    trayOpen = !trayOpen;
+    document.getElementById('trayContent').className = 'tray-content' + (trayOpen ? ' open' : '');
+    document.getElementById('trayChevron').className = 'tray-chevron' + (trayOpen ? ' open' : '');
+  }
+
+  function openTray() {
+    trayOpen = true;
+    document.getElementById('trayContent').classList.add('open');
+    document.getElementById('trayChevron').classList.add('open');
+  }
+
+  function renderTray() {
+    const grid = document.getElementById('trayPicksGrid');
+    const pickEntries = Object.entries(getCurrentWeekPicks());
+
+    if (pickEntries.length === 0) {
+      grid.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;grid-column:1/-1;">
+        No picks yet — select your 10 games above.
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = pickEntries.map(([gameId, pick]) => {
+      const game = games.find(g => g.id === gameId);
+      const spreadDisplay = Number.isNaN(pick.spread)
+        ? 'No spread yet'
+        : (pick.side === 'favorite' ? `-${Math.abs(pick.spread)}` : `+${Math.abs(pick.spread)}`);
+      return `
+        <div class="tray-pick">
+          <div class="tray-pick-team">${pick.team}</div>
+          <div class="tray-pick-spread">${spreadDisplay}</div>
+          <div class="tray-remove" onclick="removePick('${gameId}')">×</div>
+        </div>`;
+    }).join('');
+  }
+
+  function removePick(gameId) {
+    delete picks[gameId];
+    savePicks();
+    updateCounter();
+    renderGames();
+    renderTray();
+  }
+
+  // ── Submit ───────────────────────────────────────
+  // "Review Picks": a read-back of what is already saved, with each
+  // pick's kickoff and lock state. It writes nothing — every tap already
+  // saved — which is exactly what the heading says.
+  function submitPicks() {
+    const currentPicks = getCurrentWeekPicks();
+    const count = Object.keys(currentPicks).length;
+    if (count === 0) return;
+
+    const overlay = document.getElementById('submissionOverlay');
+    const list    = document.getElementById('submissionPicksList');
+    const title   = document.getElementById('submissionTitle');
+    const sub     = document.getElementById('submissionSub');
+    const now     = new Date();
+
+    if (saveState === 'failed') {
+      title.textContent = 'These picks have NOT saved';
+      sub.textContent = 'Your phone kept a copy, but the cup has not. Check your connection and tap any pick again to retry.';
+    } else if (count < MAX_PICKS) {
+      title.textContent = `${count} of ${MAX_PICKS} picks saved`;
+      sub.textContent = `Pick ${MAX_PICKS - count} more. Each pick locks at its own kickoff — you can change any of them until then.`;
+    } else if (count > MAX_PICKS) {
+      title.textContent = `${count} picks — that is ${count - MAX_PICKS} too many`;
+      sub.textContent = `Remove ${count - MAX_PICKS} so you are at exactly ${MAX_PICKS}.`;
+    } else {
+      title.textContent = 'Your 10 picks are saved';
+      const at = lastSavedAt ? ` Last saved ${lastSavedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.` : '';
+      sub.textContent = `Nothing else to do.${at} Each pick locks at its own kickoff and can be changed until then.`;
+    }
+
+    const rows = Object.entries(currentPicks).map(([gameId, pick]) => {
+      const game = games.find(g => g.id === gameId);
+      const t = game ? new Date(game.gameTime) : null;
+      const locked = !game || now >= t || game.status === 'live' || game.status === 'final';
+      return { pick, t, locked };
+    }).sort((a, b) => (a.t || 0) - (b.t || 0));
+
+    list.innerHTML = rows.map(({ pick, t, locked }) => {
+      const spreadDisplay = Number.isNaN(pick.spread)
+        ? 'No spread yet'
+        : (pick.side === 'favorite' ? `-${Math.abs(pick.spread)}` : `+${Math.abs(pick.spread)}`);
+      const when = t && !Number.isNaN(t.getTime())
+        ? t.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+        : '';
+      const state = locked ? '🔒 Locked' : `Locks ${when}`;
+      return `
+        <div class="sub-pick-item">
+          <div class="sub-pick-team">${pick.team}</div>
+          <div class="sub-pick-spread">${spreadDisplay}<span style="display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px;">${state}</span></div>
+        </div>`;
+    }).join('');
+
+    overlay.classList.add('active');
+  }
+
+  function closeSubmission() {
+    document.getElementById('submissionOverlay').classList.remove('active');
+  }
+
+  // ── Toast notification ───────────────────────────
+  function showToast(msg) {
+    const existing = document.getElementById('toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.textContent = msg;
+    Object.assign(toast.style, {
+      position: 'fixed', bottom: '130px', left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#333', color: '#fff', padding: '10px 20px',
+      borderRadius: '20px', fontSize: '13px', fontWeight: '600',
+      zIndex: '9999', whiteSpace: 'nowrap',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
+    });
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ── Helpers ──────────────────────────────────────
+  function formatGameTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+  }
+
+  function getDayLabel(iso) {
+    const d = new Date(iso);
+    const today = new Date();
+    const diff  = Math.round((d - today) / 86400000);
+    const name  = d.toLocaleDateString('en-US', { weekday: 'long' });
+    const date  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (diff === 0) return `Today · ${date}`;
+    if (diff === 1) return `Tomorrow · ${date}`;
+    return `${name} · ${date}`;
+  }
+
+  function formatTimeSince(iso) {
+    const secs = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (secs < 60)    return 'just now';
+    if (secs < 3600)  return `${Math.floor(secs/60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+    return `${Math.floor(secs/86400)}d ago`;
+  }
+
+  function onSearch() {
+    const val = document.getElementById('searchInput').value;
+    const clearBtn = document.getElementById('searchClear');
+    clearBtn.className = 'search-clear' + (val ? ' visible' : '');
+    renderGames();
+  }
+
+  function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchClear').className = 'search-clear';
+    document.getElementById('searchResultCount').textContent = '';
+    document.getElementById('searchInput').focus();
+    renderGames();
+  }
+
+  function getFallbackGames() {
+    // Intentionally empty. Used only if both Firebase and localStorage
+    // come back empty - showing nothing is correct there; showing five
+    // fictional games from last October (as this used to) is a trap that
+    // would have real players submitting picks against them.
+    return [];
+  }
+
+  // ── Player Avatars ─────────────────────────────────────────────────────
+  const PLAYER_AVATARS = {
+    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
+    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
+    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
+  };
+
+  function getAvatar(name, size = 32) {
+    const emoji = PLAYER_AVATARS[name] || '🏈';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;font-size:${size*0.65}px;background:rgba(245,197,24,0.1);border-radius:50%;border:2px solid rgba(245,197,24,0.3);margin-right:8px;">${emoji}</span>`;
+  }
+
+</script>
+</body>
+</html>
