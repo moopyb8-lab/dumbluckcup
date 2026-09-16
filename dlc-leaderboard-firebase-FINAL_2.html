@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Dumb Luck Cup — Leaderboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold:    #f5c518;
+      --silver:  #c0c0c0;
+      --bronze:  #cd7f32;
+      --green:   #00c48c;
+      --red:     #ff4d4d;
+      --dark:    #0d0f14;
+      --card:    #171a22;
+      --border:  #252836;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --accent:  #667eea;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
+      padding: 20px;
+      min-height: 232px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    header::before {
+      content: '🏆';
+      position: absolute;
+      font-size: 200px;
+      opacity: 0.1;
+      top: -30px;
+      right: -30px;
+      transform: rotate(15deg);
+      pointer-events: none;
+      animation: headerTrophyFloat 5s ease-in-out infinite;
+    }
+
+    @keyframes headerTrophyFloat {
+      0%, 100% { transform: rotate(15deg) translateY(0); }
+      50%      { transform: rotate(8deg) translateY(-8px); }
+    }
+
+    .trophy-icon {
+      font-size: 64px;
+      height: 64px;
+      line-height: 64px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 20px rgba(245,197,24,0.4));
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      animation: leaderboardTrophyPulse 2.8s ease-in-out infinite;
+    }
+
+    @keyframes leaderboardTrophyPulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.08); }
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+      color: #000;
+    }
+
+    .season-info {
+      font-size: 16px;
+      line-height: 1.2;
+      opacity: 0.9;
+      position: relative;
+      z-index: 1;
+      color: rgba(0,0,0,0.7);
+      font-weight: 600;
+    }
+
+    .season-info span {
+      display: inline-block;
+      padding: 0 8px;
+    }
+
+    /* ── Stats bar ──────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-box {
+      background: var(--card);
+      padding: 14px 12px;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .stat-box:hover {
+      background: rgba(245,197,24,0.06);
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--gold);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Podium ─────────────────────────────────── */
+    .podium-container {
+      padding: 28px 20px;
+      background: var(--card);
+    }
+
+    .podium {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      max-width: 500px;
+      margin: 0 auto;
+      align-items: flex-end;
+    }
+
+    .podium-place {
+      text-align: center;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .podium-place:hover { transform: translateY(-4px); }
+
+    .podium-place.second { grid-column: 1; }
+    .podium-place.first  { grid-column: 2; }
+    .podium-place.third  { grid-column: 3; }
+
+    .podium-medal {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+    }
+
+    .podium-place.first .podium-medal   {
+      font-size: 64px;
+      animation: firstPlaceFloat 3s ease-in-out infinite;
+    }
+    .podium-place.second .podium-medal  { font-size: 52px; }
+
+    @keyframes firstPlaceFloat {
+      0%, 100% { transform: translateY(0); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+      50%      { transform: translateY(-6px); filter: drop-shadow(0 6px 18px rgba(245,197,24,0.5)); }
+    }
+
+    .podium-name {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .podium-place.first .podium-name { font-size: 20px; }
+
+    .podium-points {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gold);
+    }
+
+    .podium-place.first .podium-points {
+      font-size: 36px;
+      text-shadow: 0 0 20px rgba(245,197,24,0.5);
+    }
+
+    .podium-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Full standings table ───────────────────── */
+    .standings-section {
+      padding: 20px 12px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px 12px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .refresh-btn {
+      background: var(--border);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: var(--muted);
+      transform: scale(1.04);
+    }
+
+    .standings-table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .standings-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .standings-table thead {
+      background: rgba(102,126,234,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .standings-table th {
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .standings-table th.rank-col { width: 50px; text-align: center; }
+    .standings-table th.total-col { 
+      background: rgba(245,197,24,0.15);
+      color: var(--gold);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .standings-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+
+    .standings-table tbody tr {
+      transition: background 0.15s;
+      border-left: 2px solid transparent;
+    }
+
+    .standings-table tbody tr:hover {
+      background: rgba(245,197,24,0.05);
+      border-left-color: var(--gold);
+    }
+
+    .rank-cell {
+      text-align: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--muted);
+      transition: text-shadow 0.15s;
+    }
+
+    .rank-cell.rank-1 { color: var(--gold);   font-size: 24px; text-shadow: 0 0 12px rgba(245,197,24,0.4); }
+    .rank-cell.rank-2 { color: var(--silver); font-size: 22px; }
+    .rank-cell.rank-3 { color: var(--bronze); font-size: 20px; }
+
+    .player-cell {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .week-cell {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .week-cell.has-score {
+      color: var(--text);
+    }
+
+    .week-cell.best-week {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .week-cell.worst-week {
+      color: var(--red);
+      opacity: 0.6;
+    }
+
+    .total-cell {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--gold);
+      background: rgba(245,197,24,0.08);
+    }
+
+    /* ── Empty state ────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .emoji {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── Footer ─────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (min-width: 768px) {
+      .standings-section,
+      .podium-container {
+        max-width: 900px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+  
+    /* ── Navigation ─────────────────────────────── */
+    nav.page-nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    nav.page-nav::-webkit-scrollbar { display: none; }
+
+    .nav-btn {
+      background: var(--border);
+      border: 1px solid transparent;
+      color: #ffffff;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-block;
+    }
+
+    .nav-btn:hover {
+      background: rgba(245,197,24,0.12);
+      border-color: rgba(245,197,24,0.4);
+      color: var(--gold);
+      transform: translateY(-1px);
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────── -->
+<header>
+  <div class="trophy-icon">🏆</div>
+  <h1>Dumb Luck Cup</h1>
+  <div class="season-info">
+    <span>2026 Season</span>
+    <span>·</span>
+    <span id="currentWeek">Week —</span>
+  </div>
+</header>
+<nav class="page-nav">
+  <a href="/" class="nav-btn">🏈 Make Picks</a>
+  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
+  <a href="/dlc-rules.html" class="nav-btn">📖 Rules & FAQ</a>
+  <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn">⚙️ Admin</a>
+</nav>
+
+
+<!-- ── Stats bar ──────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-box">
+    <span class="stat-value" id="totalPlayers">0</span>
+    <span class="stat-label">Players</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-value" id="totalGames">0</span>
+    <span class="stat-label">Games Scored</span>
+  </div>
+  <div class="stat-box">
+    <span class="stat-value" id="avgScore">—</span>
+    <span class="stat-label">Avg Score</span>
+  </div>
+</div>
+
+<!-- ── Podium ─────────────────────────────────────── -->
+<div class="podium-container" id="podiumContainer">
+  <div class="podium" id="podium">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- ── Weekly leaderboard ─────────────────────────── -->
+<div class="standings-section" id="weeklyLeaderboardSection" style="display:none;">
+  <div class="section-header">
+    <h2 class="section-title">Weekly Leaderboard</h2>
+    <select id="weekPickerSelect" class="refresh-btn" style="padding-right:8px;" onchange="renderWeeklyLeaderboard()"></select>
+  </div>
+  <div id="weekStatusLine" style="font-size:12px;color:var(--muted);margin:-6px 0 12px;line-height:1.5;"></div>
+
+  <div class="standings-table-wrap">
+    <table class="standings-table">
+      <thead>
+        <tr>
+          <th class="rank-col">#</th>
+          <th>Player</th>
+          <th style="text-align:center;" title="Covers – misses – pushes">W-L-P</th>
+          <th style="text-align:center;" title="Picks on games not yet scored">Left</th>
+          <th class="total-col">Points</th>
+        </tr>
+      </thead>
+      <tbody id="weeklyLeaderboardBody">
+        <!-- Populated by JS -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Full standings ─────────────────────────────── -->
+<div class="standings-section">
+  <div class="section-header">
+    <h2 class="section-title">Season Standings</h2>
+    <button class="refresh-btn" onclick="loadStandings()">🔄 Refresh</button>
+  </div>
+
+  <div class="standings-table-wrap">
+    <table class="standings-table">
+      <thead id="standingsTableHead">
+        <!-- Populated by JS -->
+      </thead>
+      <tbody id="standingsTableBody">
+        <!-- Populated by JS -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────── -->
+<footer>
+  <p>
+    <a href="dlc-picks.html">📝 Make Your Picks</a>
+    &nbsp;·&nbsp;
+    Commissioner: <a href="dlc-admin-panel.html">Admin Panel</a>
+  </p>
+  <p style="margin-top:12px; font-size:11px; opacity:0.6;">
+    Cover the spread = 2 pts · Push = 1 pt · No cover = 0 pts
+  </p>
+</footer>
+
+<script>
+  // ── State ────────────────────────────────────────
+  let games = [];
+  let playerData = {};
+  let weeks = [];
+
+  // ── Boot ─────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadStandings();
+    // Set up real-time listeners for live updates
+    if (typeof DLC_DB !== 'undefined') {
+      DLC_DB.onGamesChange((newGames) => {
+        games = newGames;
+        const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+        weeks = [...new Set(scoredGames.map(g => g.week))].sort((a,b) => a - b);
+        calculateStandings();
+        renderStats();
+        renderPodium();
+        renderStandingsTable();
+        renderWeeklyLeaderboard();
+      });
+
+      DLC_DB.onAllPicksChange((newPicks) => {
+        playerData = newPicks;
+        calculateStandings();
+        renderStats();
+        renderPodium();
+        renderStandingsTable();
+        renderWeeklyLeaderboard();
+      });
+    }
+  });
+
+  async function loadStandings() {
+    // Load games from Firebase
+    try {
+      games = await DLC_DB.loadGames();
+    } catch(e) {
+      console.warn('Firebase load failed, trying localStorage');
+      const stored = localStorage.getItem('dlc_games');
+      if (stored) {
+        try { games = JSON.parse(stored); } catch(e) { games = []; }
+      }
+    }
+
+    // Load all player picks from Firebase
+    try {
+      playerData = await DLC_DB.loadAllPlayerPicks();
+    } catch(e) {
+      console.warn('Firebase picks load failed, trying localStorage');
+      playerData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dlc_picks_')) {
+          const playerName = key.replace('dlc_picks_', '');
+          try {
+            playerData[playerName] = JSON.parse(localStorage.getItem(key));
+          } catch(e) {}
+        }
+      }
+    }
+
+    // Merge in archived weeks (saved and cleared via the admin panel's
+    // "Save & Clear This Week"). Once a week is archived, its live games
+    // and picks may no longer exist - this is the only place that week's
+    // data still lives, so without this its points would silently drop
+    // out of the season standings the next time this page loads.
+    try {
+      const archives = await DLC_DB.loadAllArchives();
+      const seenGameIds = new Set(games.map(g => g.id));
+      for (const archive of Object.values(archives || {})) {
+        for (const g of (archive.games || [])) {
+          if (!seenGameIds.has(g.id)) {
+            games.push(g);
+            seenGameIds.add(g.id);
+          }
+        }
+        for (const [player, archivedPicks] of Object.entries(archive.picks || {})) {
+          playerData[player] = { ...(archivedPicks || {}), ...(playerData[player] || {}) };
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load archived weeks:', e);
+    }
+
+    // Determine which weeks have scored games
+    const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+    weeks = [...new Set(scoredGames.map(g => g.week))].sort((a,b) => a - b);
+
+    calculateStandings();
+    renderStats();
+    renderPodium();
+    renderStandingsTable();
+    renderWeeklyLeaderboard();
+  }
+
+  function calculateStandings() {
+    const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+
+    // Roster is strictly the known player list (PLAYER_AVATARS) - every
+    // real player shows up even before they've submitted a single pick
+    // (0 points, all dashes), but this deliberately does NOT also pull in
+    // whatever names happen to exist as keys under playerData. That used
+    // to be unioned in too, on the theory that a new player might show up
+    // there before being added to PLAYER_AVATARS - but Firebase can carry
+    // stray/test entries under names nobody actually plays as, and those
+    // have no business appearing on the leaderboard just for existing.
+    const roster = new Set(Object.keys(PLAYER_AVATARS));
+
+    const standings = [...roster].map(player => {
+      const picks = playerData[player] || {};
+      const weeklyScores = {};
+      let totalPoints = 0;
+
+      Object.entries(picks).forEach(([gameId, pick]) => {
+        const game = scoredGames.find(g => g.id === gameId);
+        if (!game) return;
+
+        const { points } = scorePickResult(
+          game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)
+        );
+
+        const week = game.week;
+        if (!weeklyScores[week]) weeklyScores[week] = 0;
+        weeklyScores[week] += points;
+        totalPoints += points;
+      });
+
+      return { player, weeklyScores, totalPoints };
+    })
+    // Keep everyone, including 0-point players — sort by total points,
+    // then alphabetically so ties (including everyone-at-zero) land in a
+    // stable, predictable order instead of whatever order Firebase or the
+    // roster happened to return them in.
+    .sort((a, b) => b.totalPoints - a.totalPoints || a.player.localeCompare(b.player));
+
+    return standings;
+  }
+
+  // Ranks every roster player by a single week's points, separate from the
+  // season-total table below it — "weekly scores, then season scores".
+  // Defaults to the most recent scored week; the dropdown lets you look
+  // back at any earlier week without losing your place on a live update
+  // (the select's options are only rebuilt when the set of weeks changes).
+  function renderWeeklyLeaderboard() {
+    const section = document.getElementById('weeklyLeaderboardSection');
+    const select = document.getElementById('weekPickerSelect');
+    const tbody = document.getElementById('weeklyLeaderboardBody');
+
+    // Any week with games loaded is pickable — including the current week
+    // before a single game has been scored, so mid-week the table can say
+    // "0 of 102 scored · 120 picks still live" instead of vanishing.
+    const allWeeks = [...new Set(games.map(g => g.week).filter(w => Number.isFinite(w)))].sort((a, b) => a - b);
+    if (allWeeks.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+
+    const existingOptions = [...select.options].map(o => o.value);
+    const wantedOptions = allWeeks.map(String);
+    if (existingOptions.join(',') !== wantedOptions.join(',')) {
+      const previousValue = select.value;
+      select.innerHTML = allWeeks.map(w => `<option value="${w}">Week ${w}</option>`).join('');
+      select.value = wantedOptions.includes(previousValue) ? previousValue : String(allWeeks[allWeeks.length - 1]);
+    }
+
+    const selectedWeek = parseInt(select.value, 10);
+    const weekGames = games.filter(g => g.week === selectedWeek);
+    const scoredGames = weekGames.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+    const scoredIds = new Set(scoredGames.map(g => g.id));
+    const weekIds = new Set(weekGames.map(g => g.id));
+    // Same fixed roster as calculateStandings() - no stray Firebase keys.
+    const roster = new Set(Object.keys(PLAYER_AVATARS));
+
+    let pendingTotal = 0;
+    const weekStandings = [...roster].map(player => {
+      const picks = playerData[player] || {};
+      let points = 0, wins = 0, losses = 0, pushes = 0, pending = 0;
+
+      Object.entries(picks).forEach(([gameId, pick]) => {
+        if (!weekIds.has(gameId)) return;
+        if (!scoredIds.has(gameId)) { pending++; return; }
+        const game = scoredGames.find(g => g.id === gameId);
+        const { result, points: p } = scorePickResult(game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick));
+        points += p;
+        if (result === 'WIN') wins++; else if (result === 'PUSH') pushes++; else losses++;
+      });
+
+      pendingTotal += pending;
+      return { player, points, wins, losses, pushes, pending, scored: wins + losses + pushes };
+    })
+    .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player));
+
+    tbody.innerHTML = weekStandings.map((s, idx) => {
+      const rank = idx + 1;
+      const record = s.scored > 0 ? `${s.wins}-${s.losses}-${s.pushes}` : '—';
+      const left = s.pending > 0
+        ? `<span style="color:var(--yellow);font-weight:700;">${s.pending}</span>`
+        : (s.scored > 0 ? '<span title="All picks scored">✓</span>' : '—');
+      return `
+        <tr>
+          <td class="rank-cell rank-${rank}">${rank}</td>
+          <td class="player-cell">${getAvatar(s.player, 28)} ${s.player}</td>
+          <td style="text-align:center;font-size:13px;font-variant-numeric:tabular-nums;">${record}</td>
+          <td style="text-align:center;font-size:13px;">${left}</td>
+          <td class="total-cell">${s.points}</td>
+        </tr>`;
+    }).join('');
+
+    // The line that says whether these numbers are final yet.
+    //
+    // It counts PICKED games only, not every game on the slate. Most weeks
+    // carry games nobody chose, and some of those never get a spread from
+    // ESPN at all - three Week 1 FBS games ended that way. Counting the full
+    // slate made the line read "99 of 102 games scored", which implied three
+    // games still owed somebody points when in fact nobody had picked them
+    // and there was no work outstanding. Only a game someone picked can
+    // change the standings, so only those are worth counting here.
+    const statusEl = document.getElementById('weekStatusLine');
+    if (statusEl) {
+      const pickedIds = new Set();
+      for (const player of roster) {
+        for (const gameId of Object.keys(playerData[player] || {})) {
+          if (weekIds.has(gameId)) pickedIds.add(gameId);
+        }
+      }
+      const pickedTotal = pickedIds.size;
+      const pickedScored = [...pickedIds].filter(id => scoredIds.has(id)).length;
+      const awaiting = pickedTotal - pickedScored;
+      const stamp = new Date().toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      let msg;
+      if (weekGames.length === 0 || pickedTotal === 0) {
+        msg = '';
+      } else if (awaiting === 0) {
+        msg = `Final — every picked game is scored (${pickedTotal} of ${weekGames.length} games on the slate were picked).`;
+      } else {
+        msg = `${pickedScored} of ${pickedTotal} picked games scored · ${awaiting} still to play or score`
+            + (pendingTotal > 0 ? ` · ${pendingTotal} picks still live` : '')
+            + `. Scores update nightly after the last game.`;
+      }
+      statusEl.textContent = msg ? `${msg} As of ${stamp}.` : '';
+    }
+  }
+
+  // A spread field only counts as "set" if it's a real number — null,
+  // undefined, and literal NaN (old bad data) all mean "not usable", but
+  // plain "!== null" checks let undefined/NaN slip through as if valid,
+  // which is how a final game with a corrupted finalSpread stayed counted
+  // as scored and handed every pick on it an automatic loss (NaN
+  // comparisons are always false, so scorePickResult falls through to LOSS).
+  function isValidSpread(v) {
+    return v !== null && v !== undefined && !Number.isNaN(v);
+  }
+
+  // Same reasoning, applied to homeScore/awayScore — a game that hasn't
+  // started has homeScore as undefined (not null), which a plain
+  // "!== null" check treats as if a real score were already in.
+  function isValidScore(v) {
+    return v !== null && v !== undefined && !Number.isNaN(v);
+  }
+
+  // A pick's stored side ('favorite'/'underdog') reflects whatever the
+  // spread looked like when the player picked — if the line that ends up
+  // locked has the other team favored (or is a forced pick'em), that
+  // stored side no longer matches reality. Deriving it fresh from the
+  // picked team vs. the locked spread's actual favorite is always
+  // correct, regardless of what the line looked like earlier.
+  function sideOfPick(game, pick) {
+    const homeFavored = game.finalSpread < 0;
+    const favoriteTeam = homeFavored ? game.homeTeam : game.awayTeam;
+    return pick.team === favoriteTeam ? 'favorite' : 'underdog';
+  }
+
+  function scorePickResult(homeScore, awayScore, lockedSpread, pickedSide) {
+    const homeMargin = homeScore - awayScore;
+    const coverMargin = homeMargin + lockedSpread;
+    const homeFavored = lockedSpread < 0;
+
+    if (pickedSide === 'favorite') {
+      if (homeFavored) {
+        if (coverMargin > 0)  return { result: 'WIN',  points: 2 };
+        if (coverMargin === 0) return { result: 'PUSH', points: 1 };
+        return { result: 'LOSS', points: 0 };
+      } else {
+        const awayMargin = awayScore - homeScore;
+        const awayCover = awayMargin - Math.abs(lockedSpread);
+        if (awayCover > 0)  return { result: 'WIN',  points: 2 };
+        if (awayCover === 0) return { result: 'PUSH', points: 1 };
+        return { result: 'LOSS', points: 0 };
+      }
+    } else {
+      if (homeFavored) {
+        if (coverMargin < 0)  return { result: 'WIN',  points: 2 };
+        if (coverMargin === 0) return { result: 'PUSH', points: 1 };
+        return { result: 'LOSS', points: 0 };
+      } else {
+        if (coverMargin > 0)  return { result: 'WIN',  points: 2 };
+        if (coverMargin === 0) return { result: 'PUSH', points: 1 };
+        return { result: 'LOSS', points: 0 };
+      }
+    }
+  }
+
+  function renderStats() {
+    const standings = calculateStandings();
+    const scoredGames = games.filter(g => isValidScore(g.homeScore)).length;
+    
+    document.getElementById('totalPlayers').textContent = standings.length;
+    document.getElementById('totalGames').textContent = scoredGames;
+    
+    if (standings.length > 0) {
+      const avg = standings.reduce((sum, s) => sum + s.totalPoints, 0) / standings.length;
+      document.getElementById('avgScore').textContent = avg.toFixed(1);
+    }
+
+    // Header shows the week that is loaded, not just the last one scored.
+    const maxWeek = Math.max(...games.map(g => g.week).filter(Number.isFinite), ...weeks, 0);
+    document.getElementById('currentWeek').textContent = maxWeek > 0 ? `Week ${maxWeek}` : 'Pre-Season';
+  }
+
+  function renderPodium() {
+    const standings = calculateStandings();
+    const podium = document.getElementById('podium');
+
+    // The podium celebrates top scorers, so only players who've actually
+    // earned points belong on it. standings itself is never empty anymore
+    // (every roster player shows up at 0 pre-season/before they've picked),
+    // so without this a 0-point player could get crowned bronze just for
+    // being third alphabetically.
+    const contenders = standings.filter(s => s.totalPoints > 0);
+    if (contenders.length === 0) {
+      document.getElementById('podiumContainer').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('podiumContainer').style.display = 'block';
+
+    const top3 = contenders.slice(0, 3);
+    const medals = ['🥇', '🥈', '🥉'];
+    const classes = ['first', 'second', 'third'];
+
+    podium.innerHTML = top3.map((s, idx) => `
+      <div class="podium-place ${classes[idx]}">
+        <span class="podium-medal">${medals[idx]}</span>
+        <div class="podium-name">${getAvatar(s.player, 40)} ${s.player}</div>
+        <div class="podium-points">${s.totalPoints}</div>
+        <div class="podium-label">Points</div>
+      </div>
+    `).join('');
+
+    // Reorder for visual podium effect (2nd, 1st, 3rd)
+    if (top3.length >= 2) {
+      const html = podium.innerHTML;
+      // Already ordered by grid-column in CSS
+    }
+  }
+
+  function renderStandingsTable() {
+    const standings = calculateStandings();
+    const thead = document.getElementById('standingsTableHead');
+    const tbody = document.getElementById('standingsTableBody');
+
+    // standings is never actually empty now (every roster player shows up
+    // even with 0 picks/points) — this only fires if the roster itself is
+    // somehow empty, which shouldn't happen in practice.
+    if (standings.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="20" style="padding:60px 20px;">
+            <div class="empty-state">
+              <div class="emoji">🏈</div>
+              <h3>No Scores Yet</h3>
+              <p>Once games are scored, the leaderboard will appear here.</p>
+            </div>
+          </td>
+        </tr>`;
+      thead.innerHTML = '';
+      return;
+    }
+
+    // Build header with week columns
+    const weekCols = weeks.map(w => `<th class="week-col">W${w}</th>`).join('');
+    thead.innerHTML = `
+      <tr>
+        <th class="rank-col">#</th>
+        <th>Player</th>
+        ${weekCols}
+        <th class="total-col">Total</th>
+      </tr>`;
+
+    // Build rows
+    tbody.innerHTML = standings.map((s, idx) => {
+      const rank = idx + 1;
+      const rankClass = `rank-${rank}`;
+
+      // Week cells
+      const weekCells = weeks.map(w => {
+        const score = s.weeklyScores[w] || 0;
+        const allWeekScores = Object.values(s.weeklyScores);
+        const maxScore = Math.max(...allWeekScores);
+        const minScore = Math.min(...allWeekScores.filter(x => x > 0));
+        
+        let cellClass = 'week-cell';
+        if (score > 0) cellClass += ' has-score';
+        if (score === maxScore && maxScore > 0) cellClass += ' best-week';
+        if (score === minScore && minScore > 0 && allWeekScores.length > 1) cellClass += ' worst-week';
+
+        return `<td class="${cellClass}">${score > 0 ? score : '—'}</td>`;
+      }).join('');
+
+      return `
+        <tr>
+          <td class="rank-cell ${rankClass}">${rank}</td>
+          <td class="player-cell">${getAvatar(s.player, 28)} ${s.player}</td>
+          ${weekCells}
+          <td class="total-cell">${s.totalPoints}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── Player Avatars ─────────────────────────────────────────────────────
+  const PLAYER_AVATARS = {
+    'Da Commish': '👑', 'Q': '🥃', 'O': '🐧', 'Milo': '🐸',
+    'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
+    'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
+  };
+
+  function getAvatar(name, size = 32) {
+    const emoji = PLAYER_AVATARS[name] || '🏈';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;font-size:${size*0.65}px;background:rgba(245,197,24,0.1);border-radius:50%;border:2px solid rgba(245,197,24,0.3);margin-right:8px;">${emoji}</span>`;
+  }
+
+</script>
+
+</body>
+</html>
