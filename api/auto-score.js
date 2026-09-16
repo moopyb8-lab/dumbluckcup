@@ -75,20 +75,44 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // Query a date range wide enough to cover every unfinished game's
-    // kickoff, padded a day each way for time zone slop — same as the
-    // admin panel's on-demand sync.
-    const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
-    const from = new Date(Math.min(...times)); from.setDate(from.getDate() - 1);
-    const to = new Date(Math.max(...times)); to.setDate(to.getDate() + 1);
-    const dates = `${fmt(from)}-${fmt(to)}`;
+    // ESPN has stopped accepting date-range queries. `dates=YYYYMMDD-YYYYMMDD`
+    // now returns 400 for both leagues, and the failure was silent here: the
+    // !espnRes.ok guard skipped the league, espnGames stayed empty, nothing
+    // matched, and the endpoint still answered 200 with scored: 0. A whole
+    // week could go unscored with the cron reporting success every night.
+    // Single dates still work, so ask for one day at a time.
+    //
+    // The days must be ESPN's, which is to say US Eastern, not UTC. A 5:15pm
+    // Pacific Thursday kickoff is 00:15 UTC on Friday, so deriving the day
+    // from the UTC timestamp would ask ESPN for the wrong date and find
+    // nothing. Each kickoff contributes its own day plus the one either side,
+    // which covers any remaining time zone slop.
+    const etDay = (d) => new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(d).replace(/-/g, '');
+    const shiftDays = (d, n) => new Date(d.getTime() + n * 86400000);
 
-    const leagues = [...new Set(unfinished.map(g => g.league === 'NFL' ? 'nfl' : 'cfb'))];
+    const dateSet = new Set();
+    for (const t of times) {
+      const d = new Date(t);
+      dateSet.add(etDay(shiftDays(d, -1)));
+      dateSet.add(etDay(d));
+      dateSet.add(etDay(shiftDays(d, 1)));
+    }
+    // A stale unfinished game from an old week would otherwise stretch this
+    // to dozens of requests. Two weeks of days is far more than any live
+    // slate needs.
+    const dates = [...dateSet].sort().slice(-16);
+
+    const leagues = [...new Set(unfinished.map(g =>
+      String(g.league || '').toUpperCase() === 'NFL' ? 'nfl' : 'cfb'))];
     const espnGames = [];
+    let espnOk = 0, espnFailed = 0;
 
     for (const league of leagues) {
+      for (const day of dates) {
       const path = LEAGUE_PATHS[league];
-      const params = new URLSearchParams({ dates });
+      const params = new URLSearchParams({ dates: day });
       if (league === 'cfb') params.set('groups', '80'); // FBS
       const url = `https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?${params}`;
 
@@ -96,10 +120,16 @@ module.exports = async (req, res) => {
       try {
         espnRes = await fetch(url);
       } catch (e) {
-        console.error(`ESPN fetch failed for ${league}:`, e.message);
+        espnFailed++;
+        console.error(`ESPN fetch failed for ${league} ${day}:`, e.message);
         continue;
       }
-      if (!espnRes.ok) continue;
+      if (!espnRes.ok) {
+        espnFailed++;
+        console.error(`ESPN returned ${espnRes.status} for ${league} ${day}`);
+        continue;
+      }
+      espnOk++;
       const data = await espnRes.json();
       const label = league === 'nfl' ? 'NFL' : 'FBS';
 
@@ -120,6 +150,18 @@ module.exports = async (req, res) => {
           espnEventId: event.id
         });
       }
+      }
+    }
+
+    // If every single request to ESPN failed there is nothing to match
+    // against, and carrying on would report a cheerful "scored: 0" — which
+    // is exactly how the date-range break went unnoticed. Say so instead.
+    if (espnOk === 0 && espnFailed > 0) {
+      res.status(502).json({
+        error: 'Every ESPN request failed — nothing could be scored.',
+        espnOk, espnFailed, dates, leagues
+      });
+      return;
     }
 
     let scored = 0, locked = 0, skippedNoSpread = 0;
@@ -177,7 +219,11 @@ module.exports = async (req, res) => {
       }
     }
 
-    res.status(200).json({ scored, locked, skippedNoSpread, checkedAt: new Date().toISOString() });
+    res.status(200).json({
+      scored, locked, skippedNoSpread,
+      espnOk, espnFailed, daysQueried: dates.length,
+      checkedAt: new Date().toISOString()
+    });
   } catch (err) {
     console.error('auto-score failed:', err);
     res.status(500).json({ error: err.message });
