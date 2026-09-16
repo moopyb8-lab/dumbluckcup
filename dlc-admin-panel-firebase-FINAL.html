@@ -1089,10 +1089,11 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     </div>
 
     <div style="background:#f0f4ff;border-left:4px solid #667eea;border-radius:8px;padding:20px;margin-bottom:24px;">
-      <h3 style="margin-bottom:6px;">📬 Who's picked so far</h3>
+      <h3 style="margin-bottom:6px;">📬 Who's picked so far — <span id="submittedWeekLabel">this week</span></h3>
       <p style="color:#444;font-size:14px;line-height:1.8;">
-        Every player's submitted picks for the games currently loaded. Refreshes automatically when you open this tab.
+        Every player's picks for the newest week of games loaded. Earlier weeks are still stored — they are just not shown here. Refreshes automatically when you open this tab.
       </p>
+      <p id="submittedPriorNote" style="color:#666;font-size:13px;margin-top:4px;"></p>
     </div>
     <div class="controls" style="margin-bottom:16px;">
       <button class="btn btn-primary" onclick="renderSubmittedPicks()">🔄 Refresh</button>
@@ -2080,13 +2081,41 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       }
 
       const roster = typeof PLAYER_EMAILS !== 'undefined' ? Object.keys(PLAYER_EMAILS) : Object.keys(allPicks);
-      const submitted = roster.filter(name => allPicks[name] && Object.keys(allPicks[name]).length > 0);
+
+      // Picks are stored flat, keyed by game id, with no week of their own, so
+      // this tab used to list every pick a player had ever made — last week's
+      // alongside this week's, with no way to tell which was which. Scope the
+      // view to the newest week's game ids instead. Nothing is deleted: older
+      // picks stay in the database and simply are not drawn here, which is the
+      // opposite of what "Clear All Picks" would do.
+      const weeksLoaded = games.map(g => g.week).filter(Number.isFinite);
+      const currentWeek = weeksLoaded.length ? Math.max(...weeksLoaded) : null;
+      const weekGameIds = new Set(
+        games.filter(g => currentWeek === null || g.week === currentWeek).map(g => String(g.id))
+      );
+      const inCurrentWeek = (gameId) => weekGameIds.has(String(gameId));
+
+      const weekLabelEl = document.getElementById('submittedWeekLabel');
+      if (weekLabelEl) weekLabelEl.textContent = currentWeek !== null ? `Week ${currentWeek}` : 'this week';
+
+      const priorCount = roster.reduce((n, name) =>
+        n + Object.keys(allPicks[name] || {}).filter(id => !inCurrentWeek(id)).length, 0);
+      const priorNoteEl = document.getElementById('submittedPriorNote');
+      if (priorNoteEl) {
+        priorNoteEl.textContent = priorCount > 0
+          ? `${priorCount} pick${priorCount === 1 ? '' : 's'} from earlier weeks are stored and hidden from this list.`
+          : '';
+      }
+
+      const submitted = roster.filter(name =>
+        Object.keys(allPicks[name] || {}).some(inCurrentWeek));
       document.getElementById('submittedCount').textContent = submitted.length;
       document.getElementById('rosterCount').textContent = roster.length;
 
       container.innerHTML = roster.map(name => {
         const playerPicks = allPicks[name] || {};
         const pickIds = Object.keys(playerPicks)
+          .filter(inCurrentWeek)
           .sort((a, b) => {
             const ga = games.find(g => g.id === a), gb = games.find(g => g.id === b);
             return (ga ? new Date(ga.gameTime) : 0) - (gb ? new Date(gb.gameTime) : 0);
@@ -2125,7 +2154,14 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
     }
 
     async function clearPlayerPicks(player) {
-      if (!confirm(`Clear all of ${player}'s current picks? This cannot be undone.`)) return;
+      // This wipes the player's whole picks node, not just the week on screen.
+      // Since the list above now shows one week, the button would otherwise
+      // read as "clear the picks I can see" — say plainly that it is not.
+      const stored = Object.keys((await DLC_DB.loadAllPlayerPicks())[player] || {}).length;
+      if (!confirm(
+        `Clear ALL of ${player}'s picks — all ${stored} of them, every week, not just the week shown above.\n\n` +
+        `This cannot be undone. Continue?`
+      )) return;
       try {
         await DLC_DB.savePlayerPicks(player, {});
         showAlert(`✅ Cleared ${player}'s picks.`, 'success');
