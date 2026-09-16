@@ -963,6 +963,16 @@
     ).join('');
   }
 
+  // 'nfl' / 'NFL' -> 'NFL'; 'cfb' / 'CFB' / 'fbs' -> 'FBS'. Anything else is
+  // passed through untouched so an unexpected label is visible rather than
+  // silently reclassified.
+  function normaliseLeague(league) {
+    const key = String(league || '').trim().toLowerCase();
+    if (key === 'nfl') return 'NFL';
+    if (key === 'cfb' || key === 'fbs') return 'FBS';
+    return league;
+  }
+
   async function loadGames() {
     // Load from Firebase first
     try {
@@ -982,6 +992,17 @@
     if (games.length === 0) {
       games = getFallbackGames();
     }
+
+    // Normalise the league label before anything filters on it.
+    //
+    // Every filter in getFilteredGames() compares g.league against the exact
+    // strings 'NFL' and 'FBS', so a game stored as 'nfl' or 'cfb' silently
+    // matches nothing: the NFL chip, the FBS chip and every conference chip
+    // all come back empty while All Games looks perfectly fine. ESPN's own
+    // league keys are 'nfl' and 'cfb', so any import path that forwards those
+    // through unmapped puts the wrong value in the database — and the page
+    // should survive that rather than quietly showing no games.
+    games = games.map(g => (g && g.league) ? { ...g, league: normaliseLeague(g.league) } : g);
 
     // Show only the newest week that has been loaded.
     //

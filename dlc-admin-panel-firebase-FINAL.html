@@ -1334,6 +1334,16 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
       });
     }
     
+    // 'nfl' / 'NFL' -> 'NFL'; 'cfb' / 'CFB' / 'fbs' -> 'FBS'. Anything else is
+    // passed through untouched so an unexpected label stays visible rather
+    // than being silently reclassified.
+    function normaliseLeague(league) {
+      const key = String(league || '').trim().toLowerCase();
+      if (key === 'nfl') return 'NFL';
+      if (key === 'cfb' || key === 'fbs') return 'FBS';
+      return league;
+    }
+
     async function loadGames() {
       // Try Firebase first
       try {
@@ -1362,7 +1372,27 @@ Cleveland Browns at Cincinnati Bengals (-7.5, 44.5)
         games = WEEK8_GAMES.map(g => ({...g, spreadLastUpdated: new Date().toISOString()}));
         await saveGames();
       }
-      
+
+      // Repair the league label on the way in. The panel and the picks page
+      // both compare against the exact strings 'NFL' and 'FBS', while ESPN's
+      // own league keys are 'nfl' and 'cfb'. A game stored with the raw key
+      // counts as neither, so it vanishes from every league filter and from
+      // the NFL/FBS totals while still showing up in the full list. Fixing it
+      // here means the stored value is corrected the next time games are
+      // saved, without anyone editing the database by hand.
+      let relabelled = 0;
+      games = games.map(g => {
+        if (!g || !g.league) return g;
+        const fixed = normaliseLeague(g.league);
+        if (fixed === g.league) return g;
+        relabelled++;
+        return { ...g, league: fixed };
+      });
+      if (relabelled > 0) {
+        console.log(`Normalised the league label on ${relabelled} game(s).`);
+        await saveGames();
+      }
+
       updateStats();
       renderGamesTable();
       renderSpreadsTable();
@@ -3650,7 +3680,7 @@ async function generatePicksLiveEmail() {
     return;
   }
 
-  const nfl = weekGames.filter(g => g.league === 'nfl').length;
+  const nfl = weekGames.filter(g => normaliseLeague(g.league) === 'NFL').length;
   const cfb = weekGames.length - nfl;
 
   const kickoffs = weekGames
