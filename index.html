@@ -45,14 +45,18 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* An enormous football sitting behind the wordmark, barely there. */
+  /* An enormous football sitting behind the wordmark. It started at 0.045
+     opacity, which read as a smudge rather than a football — visible enough
+     to notice, not enough to recognise. A little glow underneath lifts it off
+     the background without competing with the wordmark on top of it. */
   .hero::before {
     content: '🏈';
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%) rotate(-18deg);
     font-size: clamp(260px, 46vw, 460px);
-    opacity: 0.045;
+    opacity: 0.16;
+    filter: drop-shadow(0 0 60px rgba(245,197,24,0.25));
     pointer-events: none;
     line-height: 1;
   }
@@ -169,8 +173,14 @@
 
   .card-note { font-size: 13px; color: #9aa0ad; margin-top: 6px; line-height: 1.5; }
 
-  /* Season podium */
+  /* Season podium. The column count is set in JS from however many cards
+     there actually are: a tie for third produces four, and a fixed three
+     columns left the fourth orphaned on a row of its own, which read as a
+     bug rather than as joint third. */
   .podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 560px) {
+    .podium { grid-template-columns: repeat(2, 1fr) !important; }
+  }
   .pod {
     background: var(--card);
     border: 1px solid var(--border);
@@ -185,21 +195,46 @@
   .pod-pts { font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: var(--yellow); }
   .pod-unit { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 
-  /* Nav tiles */
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .tile {
+  /* Top navigation. Everything used to sit in big tiles at the foot of the
+     page, which assumes people scroll — and some of this family reliably
+     does not. The links live above the fold now, matching the nav on every
+     other page so the site behaves consistently. Kept at 44px tall, which is
+     the smallest comfortable tap target on a phone. */
+  .page-nav {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-top, 0px));
     background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px 16px;
-    text-align: center;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 14px;
-    transition: border-color 0.15s ease, transform 0.15s ease;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
-  .tile:hover { border-color: var(--indigo); transform: translateY(-2px); }
-  .tile-emoji { font-size: 26px; display: block; margin-bottom: 8px; }
+
+  .nav-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 22px;
+    background: var(--border);
+    border: 1px solid transparent;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+  .nav-btn.admin { opacity: 0.75; }
+
+  @media (max-width: 480px) {
+    .nav-btn { font-size: 13px; padding: 0 12px; }
+  }
 
   footer {
     text-align: center;
@@ -214,6 +249,14 @@
 </style>
 </head>
 <body>
+
+<nav class="page-nav">
+  <a href="/picks" class="nav-btn">🏈 Make Picks</a>
+  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
+  <a href="/dlc-rules.html" class="nav-btn">📖 Rules &amp; FAQ</a>
+  <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn admin">⚙️ Admin</a>
+</nav>
 
 <header class="hero">
   <div class="hero-inner">
@@ -239,14 +282,6 @@
     <div class="pod"><div class="loading">…</div></div>
     <div class="pod"><div class="loading">…</div></div>
     <div class="pod"><div class="loading">…</div></div>
-  </div>
-
-  <div class="section-label">Everything Else</div>
-  <div class="tiles">
-    <a class="tile" href="/picks"><span class="tile-emoji">🏈</span>Make Picks</a>
-    <a class="tile" href="/dlc-leaderboard-firebase-FINAL.html"><span class="tile-emoji">📊</span>Leaderboard</a>
-    <a class="tile" href="/dlc-honor-roll.html"><span class="tile-emoji">🏆</span>Honor Roll</a>
-    <a class="tile" href="/dlc-rules.html"><span class="tile-emoji">📖</span>Rules &amp; FAQ</a>
   </div>
 
 </main>
@@ -418,8 +453,14 @@
       top.push({ ...s, medal: medals[rank - 1], first: rank === 1 });
     }
 
-    document.getElementById('podium').innerHTML = top.length
-      ? top.slice(0, 4).map(s => `
+    // Ties mean the podium is not always three wide. Four players level
+    // across the medals is a perfectly ordinary Tuesday in this competition.
+    const shown = top.slice(0, 5);
+    const podiumEl = document.getElementById('podium');
+    podiumEl.style.gridTemplateColumns = `repeat(${Math.max(shown.length, 1)}, 1fr)`;
+
+    podiumEl.innerHTML = shown.length
+      ? shown.map(s => `
           <div class="pod ${s.first ? 'first' : ''}">
             <span class="pod-medal">${s.medal}</span>
             <div class="pod-name">${PLAYER_AVATARS[s.player] || '🏈'} ${esc(s.player)}</div>
