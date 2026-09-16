@@ -1,0 +1,90 @@
+# WHY THIS EXISTS
+# Vercel's Hobby plan allows one cron run per day, so /api/auto-score fired
+# once at about 9pm Pacific. That is fine for locking a spread — the kickoff
+# line and the closing line are the same line — but it means Saturday's
+# college results sit invisible all afternoon and Sunday's NFL scores don't
+# appear until the evening. Half the fun of a pick'em is watching the
+# leaderboard move while the games are on.
+#
+# GitHub Actions runs this on a public repository for free, so the same
+# endpoint can be called every fifteen minutes at no cost. Vercel Pro is
+# $20/month and buys nothing else we need.
+#
+# THE VERCEL CRON STAYS
+# vercel.json still has its daily 05:00 UTC run, deliberately. GitHub disables
+# scheduled workflows after 60 days without repository activity, and nobody
+# will notice that in January. The nightly Vercel run is the backstop that
+# keeps scoring working even if this workflow goes quiet.
+#
+# IF IT STARTS FAILING
+# A failed run means a non-200 from the endpoint. Open the run's log — the
+# response body is printed there. A 401 means Vercel has CRON_SECRET set but
+# this repository does not: add a repository secret of the same name under
+# Settings → Secrets and variables → Actions. A 502 means every ESPN request
+# failed, which is what the endpoint now says out loud rather than quietly
+# reporting zero games scored.
+
+name: Lock and score games
+
+on:
+  # Times are UTC. 16:00–06:59 UTC is roughly 9am to midnight Pacific, which
+  # covers every kickoff from the earliest Saturday college game to the end of
+  # Monday night. Two entries because the window crosses midnight UTC.
+  #
+  # Deliberately not filtered by day of week: the day-of-week arithmetic would
+  # also have to account for the UTC wrap, and getting that subtly wrong is
+  # how you lose a Saturday. On a quiet Tuesday the endpoint just answers
+  # "nothing to sync" and costs nothing.
+  schedule:
+    - cron: '*/15 16-23 * * *'
+    - cron: '*/15 0-6 * * *'
+
+  # Adds a "Run workflow" button on the Actions tab, so the commissioner can
+  # force a scoring pass without waiting for the next quarter hour.
+  workflow_dispatch:
+
+# If a run somehow takes longer than fifteen minutes, let it finish rather
+# than starting a second one on top of it.
+concurrency:
+  group: auto-score
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Call the scoring endpoint
+        env:
+          # Only needed if CRON_SECRET is set on the Vercel project. When it
+          # isn't, this is empty, the endpoint ignores the header, and
+          # everything works exactly the same.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          status=$(curl --silent --show-error --max-time 60 \
+            --output response.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://www.dumbluckcup.com/api/auto-score)
+
+          echo "HTTP $status"
+          cat response.json
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Scoring endpoint returned $status — see the response above."
+            exit 1
+          fi
+
+          # Surface the counts in the run summary so the Actions tab is
+          # readable at a glance without opening each log.
+          {
+            echo "### Scoring run"
+            echo ""
+            echo '```json'
+            cat response.json
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
