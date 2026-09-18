@@ -363,6 +363,89 @@
       opacity: 0.6;
     }
 
+    /* The week headers never had a rule of their own, so they inherited
+       .standings-table th { text-align: left } while the numbers beneath
+       them were centred — the columns read as misaligned. Every other
+       column declares its own alignment; these now do too. */
+    .standings-table th.week-col {
+      text-align: center;
+      width: 44px;
+    }
+
+    /* ── Sticky edges on the season table ─────────
+       With a full season loaded the week columns scroll horizontally.
+       Rank, player and Total are pinned so you never lose track of whose
+       row you are reading or what the total is. Scoped to .season-table so
+       the five-column Weekly Leaderboard above is left alone. Backgrounds
+       must be opaque or the scrolling cells show through them. */
+    .season-table th.rank-col,
+    .season-table td.rank-cell {
+      position: sticky;
+      left: 0;
+      background: var(--card);
+      z-index: 12;
+    }
+
+    .season-table th.player-col,
+    .season-table td.player-cell {
+      position: sticky;
+      left: 50px;
+      background: var(--card);
+      z-index: 12;
+    }
+
+    .season-table th.total-col,
+    .season-table td.total-cell {
+      position: sticky;
+      right: 0;
+      z-index: 12;
+    }
+
+    .season-table thead th.rank-col,
+    .season-table thead th.player-col,
+    .season-table thead th.total-col { z-index: 14; }
+
+    .season-table th.rank-col,
+    .season-table th.player-col {
+      background: #1b1f2b;
+    }
+
+    .season-table th.total-col,
+    .season-table td.total-cell {
+      background:
+        linear-gradient(rgba(245,197,24,0.12), rgba(245,197,24,0.12)),
+        var(--card);
+    }
+
+    /* The pinned cells sit above the row, so the row's own hover tint would
+       never reach them. Repeat it here so hovering still highlights the
+       whole row rather than just its middle. */
+    .season-table tbody tr:hover td.rank-cell,
+    .season-table tbody tr:hover td.player-cell {
+      background:
+        linear-gradient(rgba(245,197,24,0.05), rgba(245,197,24,0.05)),
+        var(--card);
+    }
+
+    .season-table td.player-cell { max-width: 200px; }
+
+    @media (max-width: 600px) {
+      .season-table td.player-cell,
+      .season-table th.player-col { max-width: 132px; }
+      .season-table td.player-cell {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .weeks-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin: -6px 0 12px;
+      line-height: 1.5;
+    }
+
     .total-cell {
       text-align: center;
       font-size: 22px;
@@ -541,11 +624,15 @@
 <div class="standings-section">
   <div class="section-header">
     <h2 class="section-title">Season Standings</h2>
-    <button class="refresh-btn" onclick="loadStandings()">🔄 Refresh</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="refresh-btn" id="weeksToggleBtn" onclick="toggleSeasonWeeks()" style="display:none;"></button>
+      <button class="refresh-btn" onclick="loadStandings()">🔄 Refresh</button>
+    </div>
   </div>
+  <div class="weeks-note" id="weeksNote"></div>
 
   <div class="standings-table-wrap">
-    <table class="standings-table">
+    <table class="standings-table season-table">
       <thead id="standingsTableHead">
         <!-- Populated by JS -->
       </thead>
@@ -573,6 +660,14 @@
   let games = [];
   let playerData = {};
   let weeks = [];
+
+  // How many of the most recent scored weeks the season table shows by
+  // default. An 18-week season is 21 columns, which squeezes every cell to
+  // nothing and pushes Total off the right edge of a phone. Older weeks are
+  // not lost — the Weekly Leaderboard above opens any single week — so the
+  // season table shows the recent run plus the total, and expands on demand.
+  const WEEK_WINDOW = 5;
+  let showAllWeeks = false;
 
   // ── Boot ─────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
@@ -946,15 +1041,38 @@
           </td>
         </tr>`;
       thead.innerHTML = '';
+      document.getElementById('weeksNote').textContent = '';
+      document.getElementById('weeksToggleBtn').style.display = 'none';
       return;
     }
 
+    // Only the most recent WEEK_WINDOW weeks unless the reader asks for all.
+    const visibleWeeks = showAllWeeks ? weeks : weeks.slice(-WEEK_WINDOW);
+    const hiddenCount = weeks.length - visibleWeeks.length;
+
+    const toggleBtn = document.getElementById('weeksToggleBtn');
+    const note = document.getElementById('weeksNote');
+    const legend = 'Green is each player\u2019s best of the weeks shown, red their worst. A dash means no scored picks that week; a 0 means they played and scored nothing.';
+
+    if (weeks.length > WEEK_WINDOW) {
+      toggleBtn.style.display = '';
+      toggleBtn.textContent = showAllWeeks
+        ? `Show last ${WEEK_WINDOW} weeks`
+        : `Show all ${weeks.length} weeks`;
+      note.textContent = hiddenCount > 0
+        ? `Showing weeks ${visibleWeeks[0]}\u2013${visibleWeeks[visibleWeeks.length - 1]} of ${weeks.length}; totals are for the full season. Use the Weekly Leaderboard above for an earlier week. ${legend}`
+        : `Showing all ${weeks.length} weeks \u2014 scroll sideways; rank, player and total stay put. ${legend}`;
+    } else {
+      toggleBtn.style.display = 'none';
+      note.textContent = weeks.length >= 2 ? legend : '';
+    }
+
     // Build header with week columns
-    const weekCols = weeks.map(w => `<th class="week-col">W${w}</th>`).join('');
+    const weekCols = visibleWeeks.map(w => `<th class="week-col">W${w}</th>`).join('');
     thead.innerHTML = `
       <tr>
         <th class="rank-col">#</th>
-        <th>Player</th>
+        <th class="player-col">Player</th>
         ${weekCols}
         <th class="total-col">Total</th>
       </tr>`;
@@ -964,19 +1082,52 @@
       const rank = idx + 1;
       const rankClass = `rank-${rank}`;
 
-      // Week cells
-      const weekCells = weeks.map(w => {
-        const score = s.weeklyScores[w] || 0;
-        const allWeekScores = Object.values(s.weeklyScores);
-        const maxScore = Math.max(...allWeekScores);
-        const minScore = Math.min(...allWeekScores.filter(x => x > 0));
-        
-        let cellClass = 'week-cell';
-        if (score > 0) cellClass += ' has-score';
-        if (score === maxScore && maxScore > 0) cellClass += ' best-week';
-        if (score === minScore && minScore > 0 && allWeekScores.length > 1) cellClass += ' worst-week';
+      // weeklyScores only has a key for a week the player actually had a
+      // scored pick in, so "played and scored nothing" (a real 0) and "no
+      // picks that week" (no key) are genuinely different things. The old
+      // code read both as a dash via `score > 0`, which hid a zero week.
+      // Compared across the weeks on screen, not the whole season: with a
+      // five-week window a player's season-best week is often scrolled out
+      // of view, and a table with no green in it reads as broken. Expanding
+      // to all weeks therefore makes these the season best and worst, which
+      // is what the note under the heading says.
+      const playedWeeks = visibleWeeks.filter(w =>
+        Object.prototype.hasOwnProperty.call(s.weeklyScores, w));
+      const playedScores = playedWeeks.map(w => s.weeklyScores[w]);
 
-        return `<td class="${cellClass}">${score > 0 ? score : '—'}</td>`;
+      // Best and worst are only meaningful once there are two different
+      // scores to compare. Previously a player with one scoring week had
+      // that week as both their max and their min, so it picked up both
+      // classes — and .worst-week is declared after .best-week, so their
+      // best week rendered red. Requiring hi !== lo kills the tie, and the
+      // else-if below means best wins outright if anything else slips past.
+      let bestWeek = null, worstWeek = null;
+      if (playedScores.length >= 2) {
+        const hi = Math.max(...playedScores);
+        const lo = Math.min(...playedScores);
+        if (hi !== lo) {
+          bestWeek  = playedWeeks.find(w => s.weeklyScores[w] === hi);
+          worstWeek = playedWeeks.find(w => s.weeklyScores[w] === lo);
+        }
+      }
+
+      // Week cells
+      const weekCells = visibleWeeks.map(w => {
+        const played = Object.prototype.hasOwnProperty.call(s.weeklyScores, w);
+        const score = played ? s.weeklyScores[w] : null;
+
+        let cellClass = 'week-cell';
+        if (played) cellClass += ' has-score';
+        if (played && w === bestWeek) cellClass += ' best-week';
+        else if (played && w === worstWeek) cellClass += ' worst-week';
+
+        let title = played
+          ? `Week ${w}: ${score} ${score === 1 ? 'point' : 'points'}`
+          : `Week ${w}: no scored picks`;
+        if (played && w === bestWeek)  title += ' \u2014 best week shown';
+        if (played && w === worstWeek) title += ' \u2014 worst week shown';
+
+        return `<td class="${cellClass}" title="${title}">${played ? score : '\u2014'}</td>`;
       }).join('');
 
       return `
@@ -987,6 +1138,13 @@
           <td class="total-cell">${s.totalPoints}</td>
         </tr>`;
     }).join('');
+  }
+
+  // Flips the season table between the recent-weeks window and the full
+  // season. Re-renders in place; nothing is refetched.
+  function toggleSeasonWeeks() {
+    showAllWeeks = !showAllWeeks;
+    renderStandingsTable();
   }
 
   // ── Player Avatars ─────────────────────────────────────────────────────
