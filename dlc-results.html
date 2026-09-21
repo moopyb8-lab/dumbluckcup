@@ -149,6 +149,22 @@
     .badge.l { background: rgba(255,90,60,0.14); color: var(--red); }
     .badge.p { background: rgba(245,197,24,0.16); color: var(--gold); }
     .badge.x { background: rgba(156,163,175,0.14); color: var(--muted); }
+    .badge.h { background: rgba(102,126,234,0.16); color: var(--accent); }
+
+    /* The line under the header that explains why some picks are masked.
+       Without it, a hidden pick reads as a bug rather than a rule. */
+    .reveal-note {
+      max-width: 760px;
+      margin: 0 auto 18px;
+      padding: 12px 16px;
+      background: rgba(102,126,234,0.08);
+      border: 1px solid rgba(102,126,234,0.28);
+      border-radius: 10px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .reveal-note b { color: var(--text); }
 
     .team { font-weight: 600; }
     .matchup { color: var(--muted); font-size: 12.5px; }
@@ -200,6 +216,12 @@
 </nav>
 
 <div class="wrap">
+
+  <div class="reveal-note">
+    <b>A pick stays hidden until its game kicks off.</b> It unlocks at the exact moment it stops being changeable,
+    so nobody can see what you picked before then.
+  </div>
+
   <div class="pickers">
     <div class="picker-label">Whose picks</div>
     <div class="chips" id="playerChips"></div>
@@ -272,6 +294,23 @@
 
   const gameById = {};
 
+  // ── Reveal rule ──────────────────────────────────────────────────
+  // A pick becomes visible at the moment it stops being changeable, and
+  // not one second earlier. This is the SAME condition dlc-picks uses to
+  // lock a game card (kickoff time, or a status of live/final), so a pick
+  // is never readable here while it is still editable there. That symmetry
+  // is the whole protection: if the two ever drift apart, picks leak.
+  //
+  // Why kickoff and not "when everyone has submitted": a player who forgets
+  // to pick would otherwise hold the whole page shut, and nobody has to
+  // remember to flip anything.
+  function gameLocked(g) {
+    if (!g) return false;
+    if (g.status === 'live' || g.status === 'final') return true;
+    const t = new Date(g.gameTime);
+    return !Number.isNaN(t.getTime()) && Date.now() >= t.getTime();
+  }
+
   // A player's picks for one week, scored. Games still to be played come
   // back as PENDING rather than being quietly dropped, so a Monday night
   // pick is visible on the Monday afternoon.
@@ -282,15 +321,22 @@
       const p = picks[key];
       const g = gameById[key] || gameById['espn-' + key];
       if (!g || g.week !== wk) return;
+      const locked = gameLocked(g);
       const scored = isValid(g.homeScore) && isValid(g.awayScore) && isValid(g.finalSpread);
       let res = 'PENDING', pts = 0;
+      if (!locked) {
+        // Not kicked off yet. The row exists so participation is visible,
+        // but the team and the side are never written into the markup.
+        rows.push({ g, p: null, res: 'HIDDEN', pts: 0, margin: null, scored: false, locked: false });
+        return;
+      }
       if (scored) {
         const r = scorePickResult(Number(g.homeScore), Number(g.awayScore), Number(g.finalSpread), p.side);
         res = r.result; pts = r.points;
       }
       const isHome = (g.homeTeam === p.team);
       const margin = scored ? (isHome ? g.homeScore - g.awayScore : g.awayScore - g.homeScore) : null;
-      rows.push({ g, p, res, pts, margin, scored });
+      rows.push({ g, p, res, pts, margin, scored, locked: true });
     });
     rows.sort((a, b) => String(a.g.gameTime).localeCompare(String(b.g.gameTime)));
     return rows;
@@ -314,6 +360,7 @@
     const l = rows.filter(r => r.res === 'LOSS').length;
     const pu = rows.filter(r => r.res === 'PUSH').length;
     const pend = rows.filter(r => r.res === 'PENDING').length;
+    const hid  = rows.filter(r => r.res === 'HIDDEN').length;
 
     let html = '';
 
@@ -321,7 +368,8 @@
       '<div class="pts">' + pts + '<small>pts</small></div>' +
       '<div class="rec">Week ' + week + ' · <b>' + w + '</b> right, <b>' + l + '</b> wrong' +
       (pu ? ', <b>' + pu + '</b> push' : '') +
-      (pend ? ' · <b>' + pend + '</b> still to play' : '') + '</div></div>';
+      (pend + hid ? ' · <b>' + (pend + hid) + '</b> still to play' : '') +
+      (hid ? ' · <b>' + hid + '</b> not yet revealed' : '') + '</div></div>';
 
     if (!rows.length) {
       html += '<div class="card-table"><div class="empty">No picks recorded for ' + player + ' in week ' + week + '.</div></div>';
@@ -331,6 +379,19 @@
         '<th class="num hide-sm">By</th><th class="num">Pts</th>' +
         '</tr></thead><tbody>';
       rows.forEach(r => {
+        if (r.res === 'HIDDEN') {
+          const kick = new Date(r.g.gameTime);
+          const when = Number.isNaN(kick.getTime()) ? 'kickoff'
+            : kick.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+          html += '<tr>' +
+            '<td><span class="matchup">\uD83D\uDD12 Hidden until kickoff</span></td>' +
+            '<td class="hide-sm matchup">' + (r.g.awayAbbr || '') + ' @ ' + (r.g.homeAbbr || '') + '</td>' +
+            '<td class="num"><span class="badge h">LOCKED</span></td>' +
+            '<td class="num hide-sm matchup">' + when + '</td>' +
+            '<td class="num"><b>\u00B7</b></td>' +
+            '</tr>';
+          return;
+        }
         const sp = Number(r.p.spread);
         const spTxt = (sp > 0 ? '+' : '') + sp;
         const cls = r.res === 'WIN' ? 'w' : r.res === 'LOSS' ? 'l' : r.res === 'PUSH' ? 'p' : 'x';

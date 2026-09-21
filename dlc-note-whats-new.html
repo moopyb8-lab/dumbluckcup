@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Dumb Luck Cup — What's New</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold:    #f5c518;
+      --silver:  #c0c0c0;
+      --bronze:  #cd7f32;
+      --green:   #00c48c;
+      --dark:    #0d0f14;
+      --card:    #171a22;
+      --border:  #252836;
+      --text:    #e8eaf0;
+      --muted:   #9ca3af;
+      --accent:  #667eea;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 60px;
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #f5c518 0%, #d4a017 100%);
+      padding: 20px;
+      min-height: 232px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    header::before {
+      content: '🛠️';
+      position: absolute;
+      font-size: 200px;
+      opacity: 0.1;
+      top: -30px;
+      left: -30px;
+      transform: rotate(-15deg);
+    }
+
+    .header-icon {
+      font-size: 64px;
+      height: 64px;
+      line-height: 64px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 20px rgba(0,0,0,0.3));
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      animation: headerIconFloat 3.5s ease-in-out infinite;
+    }
+
+    @keyframes headerIconFloat {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-6px) rotate(-3deg); }
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      line-height: 1;
+      letter-spacing: 2px;
+      color: #000;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      line-height: 1.2;
+      color: rgba(0,0,0,0.7);
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Navigation ─────────────────────────────── */
+    nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    nav::-webkit-scrollbar { display: none; }
+
+    .nav-btn {
+      background: var(--border);
+      border: 1px solid transparent;
+      color: #ffffff;
+      border-radius: 20px;
+      padding: 8px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nav-btn:hover {
+      background: rgba(245,197,24,0.12);
+      border-color: rgba(245,197,24,0.4);
+      color: var(--gold);
+      transform: translateY(-1px);
+    }
+
+    /* ── Content ────────────────────────────────── */
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    .dateline {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .lede {
+      font-size: 18px;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .lede-sub {
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 1px;
+      color: var(--gold);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 36px;
+      background: var(--gold);
+      border-radius: 2px;
+    }
+
+    /* ── Change Cards ───────────────────────────── */
+    .rule-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .rule-card:hover {
+      border-color: var(--gold);
+      transform: translateX(4px) translateY(-2px);
+      box-shadow: 0 10px 30px rgba(245,197,24,0.12), 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .rule-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--gold);
+      color: #000;
+      border-radius: 50%;
+      font-weight: 800;
+      font-size: 16px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .rule-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+    }
+
+    .rule-text {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-left: 44px;
+    }
+
+    .rule-text + .rule-text { margin-top: 10px; }
+
+    .rule-text strong { color: var(--text); font-weight: 600; }
+
+    /* ── Important Box ──────────────────────────── */
+    .important-box {
+      background: linear-gradient(135deg, rgba(245,197,24,0.1) 0%, rgba(102,126,234,0.1) 100%);
+      border: 2px solid var(--gold);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 36px 0 0;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+
+    .important-box strong { color: var(--gold); }
+
+    /* ── Sign-off ───────────────────────────────── */
+    .signoff {
+      margin-top: 40px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+      font-size: 16px;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+
+    .signoff .name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 1.5px;
+      color: var(--gold);
+      display: block;
+      margin-top: 6px;
+    }
+
+    /* ── Footer ─────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width: 600px) {
+      h1 { font-size: 36px; }
+      .section-title { font-size: 28px; }
+      .lede { font-size: 17px; }
+      .rule-text { margin-left: 0; margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────── -->
+<header>
+  <div class="header-icon">🛠️</div>
+  <h1>What's New</h1>
+  <div class="subtitle">A few small changes to the Cup</div>
+</header>
+
+<!-- ── Navigation ─────────────────────────────────── -->
+<nav>
+  <a href="/" class="nav-btn">🏠 Home</a>
+  <a href="/picks" class="nav-btn">🏈 Make Picks</a>
+  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-results.html" class="nav-btn">📋 Results</a>
+  <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
+  <a href="/dlc-rules.html" class="nav-btn">📖 Rules &amp; FAQ</a>
+  <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn">⚙️ Admin</a>
+</nav>
+
+<div class="content">
+
+  <div class="dateline">From Da Commish &bull; 21 September 2026</div>
+
+  <p class="lede">
+    Y'all asked for a couple of changes. A way to see how your picks actually did, and some assurance that your picks
+    are, in fact, <em>your</em> picks. Both are now live, along with one or two things I tidied up while I had the
+    hood open.
+  </p>
+  <p class="lede-sub">
+    Here is what you will find the next time you go in to make your picks. It should take about eleven seconds to
+    get used to.
+  </p>
+
+  <div class="section-title">The Changes</div>
+
+  <div class="rule-card">
+    <div class="rule-title"><span class="rule-number">1</span> The site now tells you who you are</div>
+    <div class="rule-text">
+      Open the picks page and there is a colored bar across the top with your name on it. That is the slot your picks
+      are going into. If it says somebody else's name, there is a button right there to switch.
+    </div>
+  </div>
+
+  <div class="rule-card">
+    <div class="rule-title"><span class="rule-number">2</span> You each get your own front door</div>
+    <div class="rule-text">
+      I am sending every one of you a personal link. Tap it and you are in as you. No name to choose, no bar to check,
+      no possibility of accidentally gifting ten picks to a relative.
+    </div>
+    <div class="rule-text">
+      <strong>Bookmark it.</strong> It is the same link every week for the rest of the season.
+    </div>
+  </div>
+
+  <div class="rule-card">
+    <div class="rule-title"><span class="rule-number">3</span> Just making sure it's you!</div>
+    <div class="rule-text">
+      The website will ask you, after you make your first pick each week, to confirm it's you. Then it gets out of the
+      way and leaves you alone.
+    </div>
+  </div>
+
+  <div class="rule-card">
+    <div class="rule-title"><span class="rule-number">4</span> There is a Results page now</div>
+    <div class="rule-text">
+      New tab along the top: <strong>📋 Results</strong>. It lays out everybody's picks for the week and shows how each
+      one landed — win, push or loss — with the points attached.
+    </div>
+    <div class="rule-text">
+      No more staring at the leaderboard trying to reverse-engineer where your two points came from.
+    </div>
+    <div class="rule-text">
+      <strong>One rule worth knowing:</strong> a pick stays hidden until its game kicks off. It unlocks at the exact
+      moment it stops being changeable, so nobody can see what you picked before then.
+    </div>
+  </div>
+
+  <div class="rule-card">
+    <div class="rule-title"><span class="rule-number">5</span> A Home button on every page</div>
+    <div class="rule-text">
+      A small thing. Until now you could wander onto a page and find yourself stranded there like a man who has walked
+      into the wrong room at a party. Fixed.
+    </div>
+  </div>
+
+  <div class="important-box">
+    <strong>And one thing that has not changed, but which people keep asking about:</strong> there is no submit button.
+    There never was one. Every pick saves the instant you tap it. If you tapped it, it is in. Go and enjoy your Sunday.
+  </div>
+
+  <div class="signoff">
+    Week 2 scores are running a little behind — they will be up shortly, and I suspect one or two of you will wish they
+    had stayed lost. Thirteen seasons and counting.
+    <br>
+    Cheers,
+    <span class="name">Da Commish</span>
+  </div>
+
+</div>
+
+<!-- ── Footer ─────────────────────────────────────── -->
+<footer>
+  <p>Dumb Luck Cup • Est. 2013 • 13 Seasons of Glory</p>
+  <p style="margin-top:12px; opacity:0.6;">
+    Questions? Contact <a href="#">Da Commish</a>
+  </p>
+</footer>
+
+</body>
+</html>
