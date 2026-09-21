@@ -540,7 +540,20 @@
       color: var(--gold);
       transform: translateY(-1px);
     }
-  </style>
+  
+    /* The page you are already on: lit, and not clickable-looking. */
+    .nav-btn[aria-current="page"] {
+      background: rgba(245,197,24,0.14);
+      border-color: rgba(245,197,24,0.45);
+      color: #f5c518;
+      cursor: default;
+    }
+    .nav-btn[aria-current="page"]:hover {
+      transform: none;
+      background: rgba(245,197,24,0.14);
+      border-color: rgba(245,197,24,0.45);
+    }
+</style>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -559,8 +572,10 @@
   </div>
 </header>
 <nav class="page-nav">
+  <a href="/" class="nav-btn">🏠 Home</a>
   <a href="/picks" class="nav-btn">🏈 Make Picks</a>
-  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn" aria-current="page">📊 Leaderboard</a>
+  <a href="/dlc-results.html" class="nav-btn">📋 Results</a>
   <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
   <a href="/dlc-rules.html" class="nav-btn">📖 Rules & FAQ</a>
   <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn">⚙️ Admin</a>
@@ -646,9 +661,9 @@
 <!-- ── Footer ─────────────────────────────────────── -->
 <footer>
   <p>
-    <a href="dlc-picks.html">📝 Make Your Picks</a>
+    <a href="/picks">📝 Make Your Picks</a>
     &nbsp;·&nbsp;
-    Commissioner: <a href="dlc-admin-panel.html">Admin Panel</a>
+    Commissioner: <a href="/dlc-admin-panel-firebase-FINAL.html">Admin Panel</a>
   </p>
   <p style="margin-top:12px; font-size:11px; opacity:0.6;">
     Cover the spread = 2 pts · Push = 1 pt · No cover = 0 pts

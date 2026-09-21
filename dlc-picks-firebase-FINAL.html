@@ -784,7 +784,53 @@
       color: var(--yellow);
       transform: translateY(-1px);
     }
-  </style>
+  
+    /* The page you are already on: lit, and not clickable-looking. */
+    .nav-btn[aria-current="page"] {
+      background: rgba(245,197,24,0.14);
+      border-color: rgba(245,197,24,0.45);
+      color: #f5c518;
+      cursor: default;
+    }
+    .nav-btn[aria-current="page"]:hover {
+      transform: none;
+      background: rgba(245,197,24,0.14);
+      border-color: rgba(245,197,24,0.45);
+    }
+
+    /* ── Who am I picking as ───────────────────────────────────────
+       The Week 3 2026 mix-up happened because the only indication of
+       whose slot you were in was small grey text in a header corner.
+       This bar is deliberately loud, sits directly above the games,
+       and follows you down the page. */
+    .who-bar {
+      position: sticky; top: 0; z-index: 60;
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; flex-wrap: wrap;
+      padding: 12px 16px;
+      border-bottom: 3px solid var(--who-ink, #f5c518);
+      background: var(--who-bg, rgba(245,197,24,0.14));
+      font-family: 'DM Sans', sans-serif;
+    }
+    .who-bar .who-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .who-bar .who-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 30px; line-height: 1; letter-spacing: 0.02em;
+      color: var(--who-ink, #f5c518);
+      display: inline-flex; align-items: center;
+    }
+    .who-bar .who-switch {
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      text-decoration: underline; cursor: pointer; background: none;
+      border: none; font-family: inherit; padding: 4px 6px;
+    }
+    .who-bar .who-switch:hover { color: var(--text); }
+    .who-bar.who-locked .who-switch { display: none; }
+    @media (max-width: 520px) { .who-bar .who-name { font-size: 24px; } }
+</style>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -806,12 +852,22 @@
   <div class="lock-line" id="lockLine"></div>
 </header>
 <nav class="page-nav">
-  <a href="/picks" class="nav-btn">🏈 Make Picks</a>
+  <a href="/" class="nav-btn">🏠 Home</a>
+  <a href="/picks" class="nav-btn" aria-current="page">🏈 Make Picks</a>
   <a href="/dlc-leaderboard-firebase-FINAL.html" class="nav-btn">📊 Leaderboard</a>
+  <a href="/dlc-results.html" class="nav-btn">📋 Results</a>
   <a href="/dlc-honor-roll.html" class="nav-btn">🏆 Honor Roll</a>
   <a href="/dlc-rules.html" class="nav-btn">📖 Rules & FAQ</a>
   <a href="/dlc-admin-panel-firebase-FINAL.html" class="nav-btn">⚙️ Admin</a>
 </nav>
+
+<!-- Whose picks are these? Loud on purpose — see .who-bar in the styles. -->
+<div class="who-bar" id="whoBar" style="display:none;">
+  <span class="who-label">You are picking as</span>
+  <span class="who-name" id="whoName">—</span>
+  <button class="who-switch" id="whoSwitch" onclick="switchPlayer()">Not you? Switch</button>
+</div>
+
 
 
 <!-- ── Filter bar ──────────────────────────────────── -->
@@ -936,18 +992,37 @@
 
     // Resume the last-picked player on this device instead of asking
     // again on every page load (e.g. going to the leaderboard and back).
-    const savedPlayer = localStorage.getItem('dlc_current_player');
-    if (savedPlayer) {
-      currentPlayer = savedPlayer;
-      document.getElementById('playerNameDisplay').innerHTML = getAvatar(savedPlayer, 24) + savedPlayer;
+    // A personal link (?p=Pops&k=juyw) wins over anything remembered on
+    // this device. On a personal link the player cannot be changed at all,
+    // which is what makes picking into the wrong slot impossible.
+    const linked = readPlayerLink();
+    if (linked) {
+      currentPlayer = linked;
+      linkLocked = true;
+      localStorage.setItem('dlc_current_player', linked);
+      setWhoBar(linked, true);
+      document.getElementById('playerNameDisplay').innerHTML = getAvatar(linked, 24) + linked;
       document.getElementById('nameModal').style.display = 'none';
+    } else {
+      const savedPlayer = localStorage.getItem('dlc_current_player');
+      if (savedPlayer) {
+        currentPlayer = savedPlayer;
+        setWhoBar(savedPlayer, false);
+        document.getElementById('playerNameDisplay').innerHTML = getAvatar(savedPlayer, 24) + savedPlayer;
+        document.getElementById('nameModal').style.display = 'none';
+      }
     }
 
     loadGames();
   });
 
   function switchPlayer() {
+    if (linkLocked) {
+      showToast('This is a personal pick link — it only picks for ' + currentPlayer + '.');
+      return;
+    }
     localStorage.removeItem('dlc_current_player');
+    setWhoBar('', false);
     currentPlayer = '';
     picks = {};
     document.getElementById('playerNameDisplay').textContent = '—';
@@ -1061,6 +1136,8 @@
     if (!sel) { alert('Please select your name first!'); return; }
     currentPlayer = sel;
     localStorage.setItem('dlc_current_player', sel);
+    sessionStorage.removeItem('dlc_confirmed_' + sel);
+    setWhoBar(sel, false);
     document.getElementById('playerNameDisplay').innerHTML = getAvatar(sel, 24) + sel;
 
     // Load existing picks
@@ -1368,13 +1445,22 @@
       return;
     }
 
-    // Save pick
+    // One confirmation per browser session, on the first pick only. This is
+    // the moment the Week 3 mix-up could have been caught, and it costs a
+    // single tap a week rather than a login.
+    if (!confirmPlayerOnce()) return;
+
+    // Save pick. enteredVia / enteredFor are audit fields: scoring ignores
+    // them, but they make "who actually typed this in" a five-second
+    // question instead of timestamp archaeology.
     picks[gameId] = {
       team,
       spread,
       side,
       pickedAt: new Date().toISOString(),
-      gameId
+      gameId,
+      enteredFor: currentPlayer,
+      enteredVia: linkLocked ? 'personal-link' : 'shared-device'
     };
 
     savePicks();
@@ -1671,6 +1757,60 @@
     'Owls': '🦉', 'Honey': '🍯', 'Pops': '🤘', 'ML': '🐻',
     'Cobe': '⚾', 'Coin': '🪙', 'Abby': '⛸️', 'Jason': '🇪🇺'
   };
+
+
+  // ── Who is picking ───────────────────────────────────────────────
+  let linkLocked = false;   // true when arrived via a personal pick link
+
+  const PLAYER_LIST = ['Da Commish','Q','O','Milo','Owls','Honey','Pops','ML','Cobe','Coin','Abby','Jason'];
+
+  // Deterministic 4-character tag. Not a secret and not pretending to be
+  // one — it exists so a link cannot be guessed by typing a name into the
+  // address bar, and so the same person always gets the same link.
+  function playerKey(name) {
+    let h = 5381;
+    const s = String(name).toLowerCase() + '|dlc2026';
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    let out = h.toString(36);
+    return out.padStart(4, '0').slice(-4);
+  }
+
+  function readPlayerLink() {
+    const q = new URLSearchParams(location.search);
+    const p = q.get('p'), k = q.get('k');
+    if (!p || !k) return null;
+    const match = PLAYER_LIST.find(n => n.toLowerCase() === p.toLowerCase());
+    if (!match) return null;
+    if (playerKey(match) !== k.toLowerCase()) return null;
+    return match;
+  }
+
+  // Hue derived from the name so each player's bar is consistently their
+  // colour — recognisable at a glance without having to read it.
+  function setWhoBar(name, locked) {
+    const bar = document.getElementById('whoBar');
+    const el  = document.getElementById('whoName');
+    if (!bar || !el) return;
+    if (!name) { bar.style.display = 'none'; return; }
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    bar.style.setProperty('--who-ink', `hsl(${h} 85% 68%)`);
+    bar.style.setProperty('--who-bg',  `hsl(${h} 70% 50% / 0.16)`);
+    bar.classList.toggle('who-locked', !!locked);
+    el.innerHTML = getAvatar(name, 26) + name.toUpperCase();
+    bar.style.display = 'flex';
+  }
+
+  function confirmPlayerOnce() {
+    if (!currentPlayer) return false;
+    if (linkLocked) return true;                     // the link already said who
+    const flag = 'dlc_confirmed_' + currentPlayer;
+    if (sessionStorage.getItem(flag)) return true;
+    const ok = confirm('These picks will be saved for ' + currentPlayer.toUpperCase() + '.\n\nIs that you?');
+    if (!ok) { switchPlayer(); return false; }
+    sessionStorage.setItem(flag, '1');
+    return true;
+  }
 
   function getAvatar(name, size = 32) {
     const emoji = PLAYER_AVATARS[name] || '🏈';
