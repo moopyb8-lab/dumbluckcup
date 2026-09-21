@@ -357,6 +357,29 @@
     return `${m}m`;
   }
 
+  // ── Who is looking at this page ──────────────────────────────────
+  // A personal link (?p=Name&k=key) wins over whatever this browser last
+  // remembered, using the SAME key scheme as dlc-picks. Without this the
+  // home page greets you as whoever last entered picks on the device —
+  // which is how a phone that was borrowed once goes on calling you by
+  // somebody else's name until localStorage is cleared.
+  function playerKey(name) {
+    let h = 5381;
+    const s = String(name).toLowerCase() + '|dlc2026';
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36).padStart(4, '0').slice(-4);
+  }
+
+  function whoAmI() {
+    const q = new URLSearchParams(location.search);
+    const p = q.get('p'), k = q.get('k');
+    if (p && k) {
+      const match = Object.keys(PLAYER_AVATARS).find(n => n.toLowerCase() === p.toLowerCase());
+      if (match && playerKey(match) === k.toLowerCase()) return match;
+    }
+    try { return localStorage.getItem('dlc_current_player'); } catch (e) { return null; }
+  }
+
   function card(label, big, note) {
     return `<div class="card">
       <div class="card-label">${esc(label)}</div>
@@ -419,7 +442,7 @@
         ? `Each game locks at its own kickoff, so a pick you have not made by then is a pick you do not get.`
         : `Every game on this week's slate has started. Nothing left to do but watch.`));
 
-    const me = localStorage.getItem('dlc_current_player');
+    const me = whoAmI();
     if (me && PLAYER_AVATARS[me]) {
       const mine = Object.keys(picks[me] || {}).filter(id => weekIds.has(String(id))).length;
       cards.push(card(`${PLAYER_AVATARS[me]} ${me} — your week`,
@@ -446,10 +469,12 @@
       for (const [gameId, pick] of Object.entries(picks[player] || {})) {
         const g = byId.get(String(gameId));
         if (!g || !pick) continue;
-        if (g.spreadResult === 'push') { pts += 1; continue; }
-        if (g.spreadResult && g.spreadResult === pick.team) { pts += 2; continue; }
-        // Fall back to computing it, for games scored before spreadResult
-        // was being written.
+        // ONE SCORING RULE ACROSS THE SITE. This used to trust a stored
+        // g.spreadResult first and only compute when it was missing, while
+        // the leaderboard and the results page always compute. Two rules
+        // means two answers, and the page that disagrees is whichever one
+        // you happen to be looking at. The stored field is now ignored
+        // here too, so all three pages derive points the same way.
         const margin = Number(g.homeScore) - Number(g.awayScore);
         const line = Number(g.finalSpread);
         const adj = margin + line;
@@ -458,7 +483,10 @@
         if (pick.team === covering) pts += 2;
       }
       return { player, pts };
-    }).filter(s => s.pts > 0).sort((a, b) => b.pts - a.pts);
+    }).filter(s => s.pts > 0)
+      // Points first, then name — the same sort the leaderboard uses, so two
+      // players level on points appear in the same order on both pages.
+      .sort((a, b) => b.pts - a.pts || a.player.localeCompare(b.player));
 
     const medals = ['🥇', '🥈', '🥉'];
     const top = [];
@@ -470,7 +498,7 @@
 
     // Ties mean the podium is not always three wide. Four players level
     // across the medals is a perfectly ordinary Tuesday in this competition.
-    const shown = top.slice(0, 5);
+    const shown = top.slice(0, 5);   // same cap as the leaderboard podium
     const podiumEl = document.getElementById('podium');
     podiumEl.style.gridTemplateColumns = `repeat(${Math.max(shown.length, 1)}, 1fr)`;
 

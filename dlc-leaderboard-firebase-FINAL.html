@@ -168,6 +168,11 @@
     .podium-place.first  { grid-column: 2; }
     .podium-place.third  { grid-column: 3; }
 
+    /* Shared medals break the theatrical 2-1-3 arrangement: two players both
+       holding .first would be placed in the same column and overlap. When a
+       tie is on the podium, fall back to plain rank order, left to right. */
+    .podium.flow .podium-place { grid-column: auto !important; }
+
     .podium-medal {
       font-size: 48px;
       display: block;
@@ -594,7 +599,7 @@
   </div>
   <div class="stat-box">
     <span class="stat-value" id="avgScore">—</span>
-    <span class="stat-label">Avg Score</span>
+    <span class="stat-label">Cover Rate</span>
   </div>
 </div>
 
@@ -984,15 +989,44 @@
 
   function renderStats() {
     const standings = calculateStandings();
-    const scoredGames = games.filter(g => isValidScore(g.homeScore)).length;
-    
+
+    // Games Scored counts games SOMEBODY PICKED and that have since been
+    // scored — not every game sitting in the database with a score on it.
+    // The database carries far more fixtures than the cup ever puts on a
+    // card, so the old count (every scored game, picked or not) read as an
+    // enormous number that corresponded to nothing on the page.
+    const scored = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
+    const roster = Object.keys(PLAYER_AVATARS);
+    const pickedIds = new Set();
+    roster.forEach(name => Object.keys(playerData[name] || {}).forEach(id => pickedIds.add(id)));
+    const gamesScored = scored.filter(g => pickedIds.has(g.id)).length;
+
+    // Cover Rate replaces the old Avg Score, which was the mean of the
+    // season TOTAL column. That number only ever climbed — 18.3 in week 2
+    // would be near 90 by week 10 — it was dragged down by anyone who
+    // missed a week, so it partly measured attendance, and sitting beside
+    // "Games Scored" it read as points per game. Cover rate stays in a
+    // fixed range all season and is comparable week to week and year to
+    // year. PUSHES ARE EXCLUDED FROM THE DENOMINATOR, which is the standard
+    // convention: a push is neither a cover nor a miss.
+    let wins = 0, losses = 0;
+    roster.forEach(name => {
+      const picks = playerData[name] || {};
+      Object.entries(picks).forEach(([gameId, pick]) => {
+        const game = scored.find(g => g.id === gameId);
+        if (!game) return;
+        const { result } = scorePickResult(
+          game.homeScore, game.awayScore, game.finalSpread, sideOfPick(game, pick)
+        );
+        if (result === 'WIN') wins++;
+        else if (result === 'LOSS') losses++;
+      });
+    });
+
     document.getElementById('totalPlayers').textContent = standings.length;
-    document.getElementById('totalGames').textContent = scoredGames;
-    
-    if (standings.length > 0) {
-      const avg = standings.reduce((sum, s) => sum + s.totalPoints, 0) / standings.length;
-      document.getElementById('avgScore').textContent = avg.toFixed(1);
-    }
+    document.getElementById('totalGames').textContent = gamesScored;
+    document.getElementById('avgScore').textContent =
+      (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) + '%' : '—';
 
     // Header shows the week that is loaded, not just the last one scored.
     const maxWeek = Math.max(...games.map(g => g.week).filter(Number.isFinite), ...weeks, 0);
@@ -1016,24 +1050,39 @@
 
     document.getElementById('podiumContainer').style.display = 'block';
 
-    const top3 = contenders.slice(0, 3);
-    const medals = ['🥇', '🥈', '🥉'];
+    // COMPETITION RANKING, matching the home page. A medal is decided by
+    // POINTS, not by position in the sorted array. Two players level on 25
+    // are both first and both get gold; the next player down is third and
+    // gets bronze, with no silver awarded. The old code took the first
+    // three rows of a list sorted by points then alphabetically, which
+    // handed gold to whoever came earlier in the alphabet and silver to an
+    // equal scorer — an arbitrary tiebreak that nothing on the page
+    // disclosed. Capped at five so a five-way tie does not run off the page.
+    const medals  = ['🥇', '🥈', '🥉'];
     const classes = ['first', 'second', 'third'];
 
-    podium.innerHTML = top3.map((s, idx) => `
-      <div class="podium-place ${classes[idx]}">
-        <span class="podium-medal">${medals[idx]}</span>
+    const ranked = contenders
+      .map(s => ({ ...s, rank: 1 + contenders.filter(o => o.totalPoints > s.totalPoints).length }))
+      .filter(s => s.rank <= 3)
+      .slice(0, 5);
+
+    // The 2-1-3 arrangement only works when there is exactly one of each
+    // medal. Any tie, and the podium flows in rank order instead.
+    const distinct = new Set(ranked.map(s => s.rank));
+    const theatrical = ranked.length === 3 && distinct.size === 3;
+    podium.classList.toggle('flow', !theatrical);
+    podium.style.gridTemplateColumns = theatrical
+      ? '1fr 1fr 1fr'
+      : `repeat(${Math.max(ranked.length, 1)}, 1fr)`;
+
+    podium.innerHTML = ranked.map(s => `
+      <div class="podium-place ${classes[s.rank - 1]}">
+        <span class="podium-medal">${medals[s.rank - 1]}</span>
         <div class="podium-name">${getAvatar(s.player, 40)} ${s.player}</div>
         <div class="podium-points">${s.totalPoints}</div>
         <div class="podium-label">Season Points</div>
       </div>
     `).join('');
-
-    // Reorder for visual podium effect (2nd, 1st, 3rd)
-    if (top3.length >= 2) {
-      const html = podium.innerHTML;
-      // Already ordered by grid-column in CSS
-    }
   }
 
   function renderStandingsTable() {
