@@ -1350,14 +1350,14 @@
           <div class="pick-row">
             <button
               class="pick-btn ${awaySide.picked ? awaySide.selectedClass : ''}"
-              onclick="makePick('${game.id}', '${awaySide.team}', ${awaySide.spread}, '${awaySide.side}')"
+              onclick="makePick('${game.id}', '${jsStr(awaySide.team)}', ${awaySide.spread}, '${awaySide.side}')"
             >
               <div class="pick-btn-spread ${awaySide.spreadClass}">${awaySide.spreadLabel}</div>
               <div class="pick-btn-label">${awaySide.label}</div>
             </button>
             <button
               class="pick-btn ${homeSide.picked ? homeSide.selectedClass : ''}"
-              onclick="makePick('${game.id}', '${homeSide.team}', ${homeSide.spread}, '${homeSide.side}')"
+              onclick="makePick('${game.id}', '${jsStr(homeSide.team)}', ${homeSide.spread}, '${homeSide.side}')"
             >
               <div class="pick-btn-spread ${homeSide.spreadClass}">${homeSide.spreadLabel}</div>
               <div class="pick-btn-label">${homeSide.label}</div>
@@ -1410,6 +1410,13 @@
   setInterval(updateLockLine, 60000);
 
   // ── Pick logic ───────────────────────────────────
+  // Team names can carry an apostrophe: Hawai'i Rainbow Warriors, Louisiana
+  // Ragin' Cajuns, Gardner-Webb Runnin' Bulldogs. The name is interpolated into
+  // a single-quoted JS string inside an onclick attribute, so a bare apostrophe
+  // ended the string early and the whole handler failed to parse. The button
+  // rendered perfectly and did nothing at all. Found 1 Oct 2026, after it had
+  // been quietly refusing Hawai'i picks since week 3.
+  const jsStr = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   function makePick(gameId, team, spread, side) {
     if (!currentPlayer) return;
     
