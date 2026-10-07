@@ -694,8 +694,9 @@
     await loadStandings();
     // Set up real-time listeners for live updates
     if (typeof DLC_DB !== 'undefined') {
-      DLC_DB.onGamesChange((newGames) => {
+      DLC_DB.onGamesChange(async (newGames) => {
         games = newGames;
+        await mergeArchives();
         const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
         weeks = [...new Set(scoredGames.map(g => g.week))].sort((a,b) => a - b);
         calculateStandings();
@@ -705,8 +706,9 @@
         renderWeeklyLeaderboard();
       });
 
-      DLC_DB.onAllPicksChange((newPicks) => {
+      DLC_DB.onAllPicksChange(async (newPicks) => {
         playerData = newPicks;
+        await mergeArchives();
         calculateStandings();
         renderStats();
         renderPodium();
@@ -715,6 +717,36 @@
       });
     }
   });
+
+  // Archived weeks live only under history/, so every path that rebuilds
+  // `games` or `playerData` has to fold them back in. This used to be inline
+  // in loadStandings() alone — which was not enough, because Firebase's
+  // onValue listeners fire immediately on attach and reassign both variables
+  // from live data a moment later, wiping the merge and leaving the season
+  // table showing only the weeks still sitting in the live games node.
+  // That is why the standings read as one week until somebody pressed
+  // Refresh. Idempotent: games dedupe on id, and archived picks are spread
+  // UNDER live picks so a live pick always wins.
+  let archiveCache = null;
+  async function mergeArchives() {
+    try {
+      if (!archiveCache) archiveCache = await DLC_DB.loadAllArchives();
+      const seenGameIds = new Set(games.map(g => g.id));
+      for (const archive of Object.values(archiveCache || {})) {
+        for (const g of (archive.games || [])) {
+          if (!seenGameIds.has(g.id)) {
+            games.push(g);
+            seenGameIds.add(g.id);
+          }
+        }
+        for (const [player, archivedPicks] of Object.entries(archive.picks || {})) {
+          playerData[player] = { ...(archivedPicks || {}), ...(playerData[player] || {}) };
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load archived weeks:', e);
+    }
+  }
 
   async function loadStandings() {
     // Load games from Firebase
@@ -750,23 +782,7 @@
     // and picks may no longer exist - this is the only place that week's
     // data still lives, so without this its points would silently drop
     // out of the season standings the next time this page loads.
-    try {
-      const archives = await DLC_DB.loadAllArchives();
-      const seenGameIds = new Set(games.map(g => g.id));
-      for (const archive of Object.values(archives || {})) {
-        for (const g of (archive.games || [])) {
-          if (!seenGameIds.has(g.id)) {
-            games.push(g);
-            seenGameIds.add(g.id);
-          }
-        }
-        for (const [player, archivedPicks] of Object.entries(archive.picks || {})) {
-          playerData[player] = { ...(archivedPicks || {}), ...(playerData[player] || {}) };
-        }
-      }
-    } catch (e) {
-      console.warn('Could not load archived weeks:', e);
-    }
+    await mergeArchives();
 
     // Determine which weeks have scored games
     const scoredGames = games.filter(g => isValidScore(g.homeScore) && isValidSpread(g.finalSpread));
