@@ -389,14 +389,21 @@
   }
 
   async function load() {
-    let games = [], picks = {};
+    let games = [], picks = {}, archives = [];
     try {
-      const [g, p] = await Promise.all([
+      const [g, p, h] = await Promise.all([
         fetch(`${DB}/games.json`).then(r => r.json()),
-        fetch(`${DB}/picks.json`).then(r => r.json())
+        fetch(`${DB}/picks.json`).then(r => r.json()),
+        // Finished weeks move to history/, so the live nodes alone are only
+        // ever the newest week or two. The front page used to read just those
+        // and still call the result SEASON POINTS, which is why it disagreed
+        // with the leaderboard. It folds the archives in now, by the same rule.
+        fetch(`${DB}/history.json`).then(r => r.json()).catch(() => null)
       ]);
       games = (Array.isArray(g) ? g : Object.values(g || {})).filter(Boolean);
       picks = p || {};
+      archives = Object.values(h || {}).sort((a, b) =>
+        String(b.archivedAt || '').localeCompare(String(a.archivedAt || '')));
     } catch (e) {
       document.getElementById('statusGrid').innerHTML =
         '<div class="card"><div class="card-note">Could not reach the scoreboard. The games are still happening, we just cannot see them from here.</div></div>';
@@ -461,12 +468,45 @@
     document.getElementById('statusGrid').innerHTML = cards.join('');
 
     // ── Season standings ───────────────────────────────────
-    const scored = games.filter(x => isScore(x.homeScore) && isSpread(x.finalSpread));
+    // The cards above stay on the live week. Only the season table folds the
+    // archives in, newest first, a whole week at a time: a source holding any
+    // of a player's picks for a week owns that week outright. Coin was flipped
+    // twice in Week 8, and merging game by game had kept both batches, which
+    // left it with fourteen picks in a ten-pick week.
+    const allGames = games.slice();
+    const seenIds = new Set(allGames.map(x => String(x.id)));
+    const allPicks = {};
+    for (const [player, p] of Object.entries(picks || {})) allPicks[player] = { ...(p || {}) };
+    for (const archive of archives) {
+      const ag = Array.isArray(archive.games) ? archive.games : Object.values(archive.games || {});
+      for (const x of ag) {
+        if (x && !seenIds.has(String(x.id))) { allGames.push(x); seenIds.add(String(x.id)); }
+      }
+    }
+    const weekOf = new Map(allGames.map(x => [String(x.id), x.week]));
+    for (const archive of archives) {
+      for (const [player, archivedPicks] of Object.entries(archive.picks || {})) {
+        const existing = allPicks[player] || {};
+        const ownedWeeks = new Set();
+        for (const id of Object.keys(existing)) {
+          const w = weekOf.get(String(id));
+          if (w !== undefined) ownedWeeks.add(w);
+        }
+        for (const [id, pick] of Object.entries(archivedPicks || {})) {
+          const w = weekOf.get(String(id));
+          if (w !== undefined && ownedWeeks.has(w)) continue;
+          if (existing[id] === undefined) existing[id] = pick;
+        }
+        allPicks[player] = existing;
+      }
+    }
+
+    const scored = allGames.filter(x => isScore(x.homeScore) && isSpread(x.finalSpread));
     const byId = new Map(scored.map(x => [String(x.id), x]));
 
     const standings = roster.map(player => {
       let pts = 0;
-      for (const [gameId, pick] of Object.entries(picks[player] || {})) {
+      for (const [gameId, pick] of Object.entries(allPicks[player] || {})) {
         const g = byId.get(String(gameId));
         if (!g || !pick) continue;
         // ONE SCORING RULE ACROSS THE SITE. This used to trust a stored

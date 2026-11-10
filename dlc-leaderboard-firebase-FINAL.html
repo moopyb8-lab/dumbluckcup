@@ -732,15 +732,40 @@
     try {
       if (!archiveCache) archiveCache = await DLC_DB.loadAllArchives();
       const seenGameIds = new Set(games.map(g => g.id));
-      for (const archive of Object.values(archiveCache || {})) {
+      const weekOf = new Map(games.map(g => [String(g.id), g.week]));
+      // Newest snapshot first, so a later archive of a week outranks an
+      // earlier one. Live picks already sit in playerData and outrank them all.
+      const archives = Object.values(archiveCache || {}).sort((a, b) =>
+        String(b.archivedAt || '').localeCompare(String(a.archivedAt || '')));
+      for (const archive of archives) {
         for (const g of (archive.games || [])) {
           if (!seenGameIds.has(g.id)) {
             games.push(g);
             seenGameIds.add(g.id);
           }
+          if (!weekOf.has(String(g.id))) weekOf.set(String(g.id), g.week);
         }
         for (const [player, archivedPicks] of Object.entries(archive.picks || {})) {
-          playerData[player] = { ...(archivedPicks || {}), ...(playerData[player] || {}) };
+          // A newer source owns a player's whole week, rather than merging
+          // game by game. Coin was flipped twice in Week 8 — once at 14:42
+          // and again at 15:21 — and the old game-id merge kept both batches,
+          // handing it fourteen picks in a ten-pick week. Replacing the week
+          // means a re-flip supersedes the earlier one instead of adding to
+          // it, and a human's picks are untouched because their weeks live in
+          // exactly one source.
+          const existing = playerData[player] || {};
+          const ownedWeeks = new Set();
+          for (const id of Object.keys(existing)) {
+            const w = weekOf.get(String(id));
+            if (w !== undefined) ownedWeeks.add(w);
+          }
+          const merged = { ...existing };
+          for (const [id, pick] of Object.entries(archivedPicks || {})) {
+            const w = weekOf.get(String(id));
+            if (w !== undefined && ownedWeeks.has(w)) continue;
+            if (merged[id] === undefined) merged[id] = pick;
+          }
+          playerData[player] = merged;
         }
       }
     } catch (e) {
