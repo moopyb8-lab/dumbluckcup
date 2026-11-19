@@ -218,8 +218,8 @@
 <div class="wrap">
 
   <div class="reveal-note">
-    <b>A pick stays hidden until its game kicks off.</b> It unlocks at the exact moment it stops being changeable,
-    so nobody can see what you picked before then.
+    <b>A pick stays hidden until its game kicks off.</b> Until then nobody can see the side you took
+    &mdash; or which game you picked. Each one unlocks at the exact moment it stops being changeable.
   </div>
 
   <div class="pickers">
@@ -339,7 +339,24 @@
       rows.push({ g, p, res, pts, margin, scored, locked: true });
     });
     rows.sort((a, b) => String(a.g.gameTime).localeCompare(String(b.g.gameTime)));
-    return rows;
+    // Revealed rows stay in kickoff order. Hidden ones are ordered by a hash
+    // of the game id instead, so their position is not a clue to when they
+    // kick off -- otherwise the row order leaks what the blanked cells no
+    // longer say. The hash is stable, so the list does not reshuffle on every
+    // render, and its bits are mixed because sequential ESPN event ids run
+    // roughly in schedule order: a plain rolling hash would stay in that order.
+    const seed = s => {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+      h ^= h >>> 16; h = Math.imul(h, 2246822507);
+      h ^= h >>> 13; h = Math.imul(h, 3266489909);
+      h ^= h >>> 16;
+      return h >>> 0;
+    };
+    const hidden = rows.filter(r => r.res === 'HIDDEN')
+      .sort((a, b) => seed(String(a.g.id)) - seed(String(b.g.id)));
+    const shown = rows.filter(r => r.res !== 'HIDDEN');
+    return shown.concat(hidden);
   }
 
   function seasonTotals(name) {
@@ -380,14 +397,15 @@
         '</tr></thead><tbody>';
       rows.forEach(r => {
         if (r.res === 'HIDDEN') {
-          const kick = new Date(r.g.gameTime);
-          const when = Number.isNaN(kick.getTime()) ? 'kickoff'
-            : kick.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+          // Nothing that identifies the game goes into the markup: not the
+          // matchup, not the kickoff time. Either one names the pick, and a
+          // kickoff time narrows a week's slate to one or two games on its
+          // own. Only the fact that a pick exists is public before kickoff.
           html += '<tr>' +
             '<td><span class="matchup">\uD83D\uDD12 Hidden until kickoff</span></td>' +
-            '<td class="hide-sm matchup">' + (r.g.awayAbbr || '') + ' @ ' + (r.g.homeAbbr || '') + '</td>' +
+            '<td class="hide-sm matchup">\u2014</td>' +
             '<td class="num"><span class="badge h">LOCKED</span></td>' +
-            '<td class="num hide-sm matchup">' + when + '</td>' +
+            '<td class="num hide-sm matchup">\u2014</td>' +
             '<td class="num"><b>\u00B7</b></td>' +
             '</tr>';
           return;
